@@ -43,6 +43,12 @@ Out of the box the game uses its own written story, so it works with no setup. T
 4. Open **API Keys** and click **Create Key**. Name it something like `iPad First Quest` and copy it straight away (it's only shown once). It starts with `sk-ant-`.
 5. On the iPad, open the game, tap ⚙️ **Settings**, paste the key, tick **Use the AI Dungeon Master**, tap **Test connection**, then **Save**.
 
+### Hearing the narrator
+
+The iPad reads the Dungeon Master's story and Pip's answers aloud using its built-in voices, which are free and need no key. Tap 🔊 in the top bar to mute or unmute, or tap 🔊 next to any line of the story to hear it again. Under ⚙️ **Settings → Narrator voice** you can pick a voice and a speed.
+
+If you hear nothing: turn the iPad's volume up, make sure Silent mode is off (swipe down to Control Center), and tap anywhere in the game once, since Safari only allows sound after a tap. For richer voices, go to the iPad's **Settings → Accessibility → Spoken Content → Voices → English** and download an "Enhanced" or "Premium" voice. It will then show up in the game's voice list.
+
 ### Keeping your key safe
 
 - The key is saved **only in that iPad's browser**. It is never added to this repository, so the public website doesn't contain it. Anyone else who visits the site plays with the written story, or adds their own key.
@@ -61,6 +67,7 @@ Claude is handed each scene's written text as "key facts" and asked to retell it
 | `js/state.js` | The game's memory: one `game` object, saved to `localStorage` after every change, plus the hero maths (`mod()`, `skillBonus()`). | Change a class's starting `scores` in `data.js` and see the HP change. |
 | `js/dice.js` | Rolling dice (advantage, Halfling luck) and the spinning-die animation. | Make the animation longer by changing `duration`. |
 | `js/narrator.js` | Talks to Claude for the DM and Pip, with the offline fallbacks. | Rewrite `DM_SYSTEM` to make the narrator a pirate. |
+| `js/voice.js` | Reads the story aloud with the browser's built-in speech (Web Speech API). | Change Pip's `pitch` to make the owl squeakier. |
 | `js/app.js` | The game itself: draws each screen with `render()` and handles every tap through `data-action` attributes. | Find `case 'roll':` and follow what happens when you roll. |
 
 ### Simplified rules (on purpose)
@@ -71,5 +78,4 @@ To keep a first session smooth, a few D&D rules are simplified: a natural 20 alw
 
 - A second adventure, so a party can keep their heroes and **level up**.
 - Sound effects for dice and a background music toggle.
-- Spoken narration on the iPad using the browser's built-in text-to-speech.
 - A "DM mode" that shows one player the DCs and secrets, so someone can learn to run the game.

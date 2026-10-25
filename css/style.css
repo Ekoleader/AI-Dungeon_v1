@@ -207,6 +207,11 @@ input:focus, textarea:focus, button:focus-visible { outline: 3px solid var(--gol
 .entry.dm p:first-child::first-letter { font-family: var(--font-title); font-size: 2.1em; float: left; line-height: .9; margin: 4px 6px 0 0; color: var(--burgundy); }
 .entry.dm.pending { font-style: italic; color: var(--ink-soft); }
 .ai-mark { position: absolute; right: -8px; top: -4px; font-size: .8rem; opacity: .6; }
+.replay { min-width: 44px; min-height: 40px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--gold-deep); background: rgba(255, 252, 240, .7); font-size: 1rem; opacity: .75; }
+.replay:active { opacity: 1; }
+.top-btn.muted { opacity: .6; }
+select { width: 100%; min-height: var(--tap); padding: 8px 12px; border: 2px solid var(--gold-deep); border-radius: 10px; background: rgba(255, 252, 240, .85); font: inherit; }
+input[type="range"] { width: 100%; min-height: 40px; accent-color: var(--burgundy); }
 .entry.scene-head { text-align: center; margin: 22px 0 12px; }
 .entry.scene-head:first-child { margin-top: 0; }
 .entry.scene-head .act { font-family: var(--font-title); color: var(--burgundy); letter-spacing: .12em; font-size: .85rem; text-transform: uppercase; }

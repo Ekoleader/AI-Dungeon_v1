@@ -88,6 +88,15 @@ function render() {
   else renderTitle();
   const badgeCount = Object.keys(game.badges).length;
   document.getElementById('badge-count').textContent = badgeCount ? badgeCount : '';
+  updateVoiceButton();
+}
+
+function updateVoiceButton() {
+  const btn = document.getElementById('voice-btn');
+  if (!voice.supported) { btn.hidden = true; return; }
+  const on = loadSettings().voiceOn;
+  btn.textContent = on ? '🔊' : '🔇';
+  btn.classList.toggle('muted', !on);
 }
 
 function applyTextSize() {
@@ -268,12 +277,16 @@ function currentActTitle() {
   return '';
 }
 
-function logEntry(e) {
+function replayButton(i) {
+  return voice.supported ? `<button class="replay" data-action="speak" data-index="${i}" aria-label="Read this aloud">🔊</button>` : '';
+}
+
+function logEntry(e, i) {
   switch (e.kind) {
     case 'scene':
       return `<div class="entry scene-head">${e.act ? `<div class="act">${esc(e.act)}</div>` : ''}<div class="scene-title">${esc(e.title)}</div></div>`;
     case 'dm':
-      return `<div class="entry dm ${e.pending ? 'pending' : ''}">${e.pending ? '<span class="quill">The Dungeon Master is speaking<span class="dots">...</span></span>' : paragraphs(e.text)}${e.ai ? '<span class="ai-mark" title="Narrated by Claude">🔮</span>' : ''}</div>`;
+      return `<div class="entry dm ${e.pending ? 'pending' : ''}">${e.pending ? '<span class="quill">The Dungeon Master is speaking<span class="dots">...</span></span>' : paragraphs(e.text)}${e.ai ? '<span class="ai-mark" title="Narrated by Claude">🔮</span>' : ''}${e.pending ? '' : replayButton(i)}</div>`;
     case 'player':
       return `<div class="entry player" style="--hero:${e.color}"><span class="sigil-badge small">${e.sigil}</span><div><b>${esc(e.speaker)}:</b> “${esc(e.text)}”</div></div>`;
     case 'action':
@@ -281,7 +294,7 @@ function logEntry(e) {
     case 'roll':
       return `<div class="entry roll ${e.success ? 'ok' : 'bad'}">${esc(e.text)}</div>`;
     case 'pip':
-      return `<div class="entry pip"><span class="owl">🦉</span><div>${e.question ? `<div class="pip-q">“${esc(e.question)}”</div>` : ''}${e.pending ? 'Pip is thinking<span class="dots">...</span>' : paragraphs(e.text)}</div></div>`;
+      return `<div class="entry pip"><span class="owl">🦉</span><div>${e.question ? `<div class="pip-q">“${esc(e.question)}”</div>` : ''}${e.pending ? 'Pip is thinking<span class="dots">...</span>' : paragraphs(e.text) + replayButton(i)}</div></div>`;
     default:
       return `<div class="entry system">${esc(e.text)}</div>`;
   }
@@ -493,6 +506,7 @@ async function narrate(facts, brief) {
   entry.text = result.text;
   entry.pending = false;
   entry.ai = result.ai;
+  speak(entry.text, 'dm');
   if (result.error) toast('🔮 The AI narrator is unavailable, so the written story takes over.');
   busy = false;
   save();
@@ -817,6 +831,7 @@ async function askPip(question) {
   if (game.screen !== 'game') {
     const answer = await pipAnswer(game, question);
     openModal(`<h3>🦉 Pip says</h3><p class="pip-q">“${esc(question)}”</p>${paragraphs(answer.text)}`);
+    speak(answer.text, 'pip');
     return;
   }
   const entry = { kind: 'pip', question, text: '', pending: true };
@@ -825,6 +840,7 @@ async function askPip(question) {
   const answer = await pipAnswer(game, question);
   entry.text = answer.text;
   entry.pending = false;
+  speak(entry.text, 'pip');
   save();
   render();
 }
@@ -869,6 +885,16 @@ function openSettings() {
       <div class="segmented">${['normal', 'large', 'huge'].map(t => `<button class="seg ${s.textSize === t ? 'on' : ''}" data-action="text-size" data-value="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
     </div>
     <div class="setting">
+      <div class="pick-label">Narrator voice</div>
+      ${voice.supported ? `
+      <p class="small">The iPad reads the story aloud using its built-in voices (free, no key needed). If you hear nothing, check the iPad's volume and that Silent mode is off.</p>
+      <label class="toggle"><input type="checkbox" id="voice-on" ${s.voiceOn ? 'checked' : ''}> Read the story aloud</label>
+      <label>Voice<select id="voice-name">${voiceOptions(s.voiceName)}</select></label>
+      <label>Speed <span class="small" id="rate-label">${Number(s.voiceRate).toFixed(2)}×</span><input type="range" id="voice-rate" min="0.7" max="1.3" step="0.05" value="${s.voiceRate}"></label>
+      <div class="button-row"><button class="big" data-action="test-voice">🔊 Test voice</button></div>`
+      : '<p class="small">This browser can\'t speak aloud. Safari on iPad can.</p>'}
+    </div>
+    <div class="setting">
       <div class="pick-label">AI Dungeon Master (Claude)</div>
       <p class="small">With an Anthropic API key, Claude narrates the story and Pip can answer any question. Without one, the game uses its written story. Get a key at console.anthropic.com. The key is stored only on this iPad, so only use your own key on your own device.</p>
       <label>API key<input type="password" id="api-key" value="${esc(s.apiKey)}" placeholder="sk-ant-..." autocomplete="off"></label>
@@ -884,7 +910,25 @@ function openSettings() {
     </div>`);
 }
 
+function voiceOptions(current) {
+  if (!voice.voices.length) loadVoices();
+  const chosen = pickVoice(current);
+  return voice.voices.map(v =>
+    `<option value="${esc(v.name)}" ${chosen && v.name === chosen.name ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`
+  ).join('') || '<option value="">Default voice</option>';
+}
+
+function storeVoiceSettings() {
+  if (!document.getElementById('voice-on')) return;
+  const s = loadSettings();
+  s.voiceOn = document.getElementById('voice-on').checked;
+  s.voiceName = document.getElementById('voice-name').value;
+  s.voiceRate = Number(document.getElementById('voice-rate').value);
+  saveSettings(s);
+}
+
 function storeSettingsFromForm() {
+  storeVoiceSettings();
   const s = loadSettings();
   s.apiKey = document.getElementById('api-key').value.trim();
   s.useAI = document.getElementById('use-ai').checked;
@@ -923,6 +967,7 @@ document.addEventListener('visibilitychange', () => {
 // ---- Taps ----------------------------------------------------------------------------
 
 document.addEventListener('click', event => {
+  unlockVoice(); // the first tap anywhere lets the iPad speak
   const el = event.target.closest('[data-action]');
   if (!el) return;
   const action = el.dataset.action;
@@ -987,6 +1032,22 @@ document.addEventListener('click', event => {
     }
     case 'save-settings': storeSettingsFromForm(); closeModal(); toast('Settings saved.'); render(); break;
     case 'test-ai': testAI(); break;
+    case 'test-voice':
+      storeVoiceSettings();
+      speak('Hear me, adventurers! The Everlight has been stolen, and only you can bring it home.', 'dm');
+      break;
+    case 'speak': {
+      const entry = game.log[Number(el.dataset.index)];
+      if (entry) speak(entry.text, entry.kind === 'pip' ? 'pip' : 'dm');
+      break;
+    }
+    case 'toggle-voice': {
+      const s = loadSettings(); s.voiceOn = !s.voiceOn; saveSettings(s);
+      if (!s.voiceOn) stopSpeaking();
+      toast(s.voiceOn ? '🔊 Narrator voice on' : '🔇 Narrator voice off');
+      updateVoiceButton();
+      break;
+    }
     case 'wipe':
       if (confirm('Erase the saved adventure and all badges on this iPad?')) {
         clearGame(); game = newState(); showTitle = true; closeModal(); render();
@@ -1006,6 +1067,12 @@ document.addEventListener('input', event => {
     if (label) label.textContent = el.value || 'Unnamed hero';
   }
   save();
+});
+
+document.addEventListener('input', event => {
+  if (event.target.id === 'voice-rate') {
+    document.getElementById('rate-label').textContent = Number(event.target.value).toFixed(2) + '×';
+  }
 });
 
 document.getElementById('modal').addEventListener('click', event => {
