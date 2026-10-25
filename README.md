@@ -11,26 +11,43 @@ A beginner Dungeons & Dragons adventure for **3 or 4 players sharing one iPad** 
 
 The D&D rules you'll learn along the way are ability checks, modifiers, Difficulty Class (DC), proficiency, Help and advantage, Inspiration, group checks, hit points, healing, natural 20s and 1s, initiative and turn order.
 
-## Running it
+## Playing it
 
-**On a computer:** double-click `index.html`. That's it.
+**Live game:** https://ekoleader.github.io/AI-Dungeon_v1/ (works once GitHub Pages is switched on, see below).
 
-**On the iPad:** an iPad can't open files straight from a folder, so the game needs to live on a website. The free, beginner-friendly way to do that is **GitHub Pages**:
+**On a computer:** you can also just double-click `index.html` in a downloaded copy.
 
-1. Make a free account at github.com and create a new **public** repository called `first-quest`.
-2. Click **Add file → Upload files** and drag in everything from this folder (`index.html`, `css/`, `js/`, this README).
-3. Go to **Settings → Pages**, set *Source* to `Deploy from a branch`, pick `main` and `/ (root)`, then save.
-4. After a minute your game is live at `https://YOUR-NAME.github.io/first-quest/`.
-5. Open that link in Safari on the iPad, tap **Share → Add to Home Screen**. Now it opens full-screen like a real app, and the screen stays awake while you play.
+### Publishing with GitHub Pages (one-time setup)
+
+1. On GitHub, open this repository and click **Settings** (the gear tab along the top).
+2. In the left sidebar, click **Pages**.
+3. Under **Build and deployment → Source**, choose **Deploy from a branch**.
+4. Under **Branch**, choose `main` and `/ (root)`, then click **Save**.
+5. Wait 1-2 minutes, then refresh the Pages screen. It shows a "Your site is live at..." link.
+
+Every time new files land on `main`, the site updates itself within a minute or two.
+
+### Putting it on the iPad
+
+1. Open the live link in **Safari** on the iPad.
+2. Tap the **Share** button, then **Add to Home Screen**.
+3. Now First Quest opens full-screen from its own icon, like a real app, and the screen stays awake while you play.
 
 ## The AI Dungeon Master (optional)
 
-Out of the box the game uses its own written story, so it works with no setup and no internet beyond loading the page. To have **Claude** narrate instead (and let Pip answer *any* question):
+Out of the box the game uses its own written story, so it works with no setup. To have **Claude** narrate instead (and let Pip answer *any* question), connect it to your Anthropic account:
 
-1. Get an API key at [console.anthropic.com](https://console.anthropic.com) and add a little credit.
-2. In the game, tap ⚙️ **Settings**, paste the key, tick **Use the AI Dungeon Master**, and tap **Test connection**.
+1. Go to [console.anthropic.com](https://console.anthropic.com) and sign up or log in.
+2. Open **Billing** (under Settings) and add some credit. A few dollars covers lots of game nights.
+3. Optional but smart: in **Limits**, set a monthly spend limit so a mistake can never cost much.
+4. Open **API Keys** and click **Create Key**. Name it something like `iPad First Quest` and copy it straight away (it's only shown once). It starts with `sk-ant-`.
+5. On the iPad, open the game, tap ⚙️ **Settings**, paste the key, tick **Use the AI Dungeon Master**, tap **Test connection**, then **Save**.
 
-The key is saved only in that iPad's browser. Because the browser talks to Claude directly, **only put your own key on your own device**, and never hard-code it into the files you upload to GitHub.
+### Keeping your key safe
+
+- The key is saved **only in that iPad's browser**. It is never added to this repository, so the public website doesn't contain it. Anyone else who visits the site plays with the written story, or adds their own key.
+- **Never** paste the key into any file on GitHub. Public repositories are scanned by bots, and a leaked key gets used by strangers.
+- Only enter your key on your own device. If you ever think it leaked, delete it in the Console's **API Keys** page and create a new one.
 
 Claude is handed each scene's written text as "key facts" and asked to retell it dramatically, so the story, the dice results and the consequences always stay the same. If the internet drops or the key is wrong, the game quietly falls back to the written story. It uses the `claude-opus-5-5` model; for a cheaper narrator, change `CLAUDE_MODEL` in `js/narrator.js` to `claude-haiku-5-5`.
 
