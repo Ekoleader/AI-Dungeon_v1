@@ -8,7 +8,8 @@ const SETTINGS_KEY = 'firstQuest.settings.v1';
 function newState() {
   return {
     version: 2,
-    screen: 'title',      // title | setup | game
+    screen: 'title',      // title | setup | pick | game
+    adventureId: 'everlight', // which adventure is being played (see adventures.js)
     setup: null,          // draft heroes while creating the party
     party: [],            // finished heroes
     sceneIndex: 0,
@@ -38,7 +39,18 @@ function loadGame() {
 }
 
 function clearGame() {
-  try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* nothing to clear */ }
+  try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(DONE_KEY); } catch (e) { /* nothing to clear */ }
+}
+
+// Which adventures this iPad has finished (kept even when a new party starts).
+const DONE_KEY = 'firstQuest.done.v1';
+function doneAdventures() {
+  try { return JSON.parse(localStorage.getItem(DONE_KEY)) || {}; } catch (e) { return {}; }
+}
+function markAdventureDone(id) {
+  const done = doneAdventures();
+  done[id] = Date.now();
+  try { localStorage.setItem(DONE_KEY, JSON.stringify(done)); } catch (e) { /* ignore */ }
 }
 
 function loadSettings() {

@@ -1,8 +1,23 @@
 # 🐉 First Quest
 
-A beginner Dungeons & Dragons adventure for **3 or 4 players sharing one iPad** in the middle of the table. Each player makes a hero, then the party plays *The Stolen Everlight*, a 30-45 minute adventure in three acts. Pip the owl teaches the rules as they come up, and the party earns badges for each D&D idea they learn.
+A beginner Dungeons & Dragons adventure for **3 or 4 players sharing one iPad** in the middle of the table. Each player makes a hero, then the party picks one of six 30-45 minute adventures, each in three acts. Pip the owl teaches the rules as they come up, and the party earns badges for each D&D idea they learn.
 
-## How a game plays
+## The adventures
+
+| Adventure | Style | Boss | Monsters you'll meet |
+|---|---|---|---|
+| 🏮 The Stolen Everlight | Classic fantasy | Grubnak the goblin chief | Goblins, goblin wolves |
+| 🐀 The Ratmancer's Engine | Steampunk | The Ratmancer | Housecatfolk bandit, Goblin bombarder, Wyrmling, zombie rats |
+| 🎪 Spores at the Steam Carnival | Steampunk | Mossmaw the Shroom druid | Deep gnome, Forest gnome, Forest guardian, spore zombies |
+| 🥚 The Dragon's Egg Heist | Steampunk | Captain Shellbeard, Turtlefolk pirate | A brass dragon, Siren, Tiefling outlander |
+| ⛏️ The Zombie Miners of Copperdeep | Steampunk | Grizzletooth the Goblin shaman | Deep gnome, Beer golem, zombie miners |
+| 🕰️ The Midnight Clockwork Dragon | Steampunk | Vexira the Erinyes | Hell pugs, Lizardfolk assassin, a clockwork dragon, clockwork zombies |
+
+The five steampunk adventures all happen in Brassport, a city of brass towers, airships and steam. Every adventure follows the same shape, so the rules stay familiar while the story changes. Each one has a scene where learning the boss's **weakness** makes some boss moves easier, and a scene where winning someone over gives a **secret way in** (failing raises the alarm and makes the boss harder).
+
+Monsters show emoji icons for now. To swap in a photo of a mini-figure later, add an `art: 'img/monsters/name.jpg'` line to that monster in `js/adventures.js`.
+
+## How a game plays (The Stolen Everlight)
 
 1. **Gather your party.** Pass the iPad around. Each player picks a name, race, class, sigil, colour and look, and can write a backstory (or tap 🎲 for an idea). A portrait is drawn from those choices. Players can also **bring back a saved hero** from an earlier adventure. Pip checks the party's balance.
 2. **Act I · The Call.** Everyone introduces their hero in character, then one hero tries to win the trust of Maren, the shrine keeper.
@@ -75,7 +90,8 @@ Claude is handed each scene's written text as "key facts" and asked to retell it
 |---|---|---|
 | `index.html` | The skeleton of the page: the top bar, the empty `<main>` the game draws into, and the script tags. | Change the `<title>`. |
 | `css/style.css` | All the looks. Colours are variables at the very top (`--burgundy`, `--gold`...). | Change `--burgundy` to a blue and watch the whole game re-theme. |
-| `js/data.js` | The **content**: races, classes, skills, the whole story, badges and Pip's answers. No logic, just words and numbers. | Add a new choice to a scene, or a new race. |
+| `js/data.js` | The **content**: races, classes, skills, the Everlight story, badges and Pip's answers. No logic, just words and numbers. | Add a new choice to a scene, or a new race. |
+| `js/adventures.js` | The other five adventures, the monster list and the boss settings the picker shows. | Change a boss's weakness by moving `weakDc` onto a different move. |
 | `js/state.js` | The game's memory: one `game` object, saved to `localStorage` after every change, plus the hero maths (`mod()`, `skillBonus()`, `buildHero()`). | Change a class's starting `scores` in `data.js` and see the HP change. |
 | `js/roster.js` | Heroes that live on between adventures: XP, levels and what each class unlocks (`LEVEL_PERKS`), paused adventures, and the backup file. | Give the Wizard a new level 2 ability in `LEVEL_PERKS`. |
 | `js/portrait.js` | Draws each hero's portrait as an SVG picture from their race, class, colour and description. | Add a new word to `LOOK_WORDS`, like *tattoo*, and draw it. |

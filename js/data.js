@@ -81,7 +81,8 @@ const NAME_IDEAS = {
 };
 
 // ---------------------------------------------------------------------------
-// The adventure: "The Stolen Everlight". Three acts, eight scenes.
+// The first adventure: "The Stolen Everlight". Three acts, eight scenes.
+// The other adventures (and the list the picker shows) live in adventures.js.
 // Tokens in text: {hero} = spotlight hero, {party} = everyone's names.
 // Scene types: intro, solo, group, boss, epilogue.
 // ---------------------------------------------------------------------------
@@ -182,10 +183,10 @@ const STORY = [
     tip: { title: 'Initiative & turns', text: 'In a fight, everyone rolls initiative (d20 + Dexterity modifier). Highest goes first, then take turns in order. Here the party needs successes before Grubnak lands 3 hits. Mix attacks, tricks, talking and Help!' },
     actions: [
       { id: 'charge', label: 'Charge with your weapon', skill: 'athletics', dc: 12, onlyFor: ['fighter'] },
-      { id: 'firebolt', label: 'Hurl a Fire Bolt', skill: 'arcana', dc: 12, onlyFor: ['wizard'], fireDc: 9 },
+      { id: 'firebolt', label: 'Hurl a Fire Bolt', skill: 'arcana', dc: 12, onlyFor: ['wizard'], weakDc: 9 },
       { id: 'sneak', label: 'Slip behind him for the lantern', skill: 'stealth', dc: 12, onlyFor: ['rogue'] },
-      { id: 'flame', label: 'Call down Sacred Flame', skill: 'religion', dc: 12, onlyFor: ['cleric'], fireDc: 9 },
-      { id: 'torch', label: 'Wave a torch in his face', skill: 'intimidation', dc: 13, fireDc: 10 },
+      { id: 'flame', label: 'Call down Sacred Flame', skill: 'religion', dc: 12, onlyFor: ['cleric'], weakDc: 9 },
+      { id: 'torch', label: 'Wave a torch in his face', skill: 'intimidation', dc: 13, weakDc: 10 },
       { id: 'talk', label: 'Talk him into giving up', skill: 'persuasion', dc: 14 },
       { id: 'help', label: 'Help a friend (next hero gets advantage)', help: true },
     ],
