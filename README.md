@@ -19,7 +19,7 @@ Monsters show emoji icons for now. To swap in a photo of a mini-figure later, ad
 
 ## How a game plays (The Stolen Everlight)
 
-1. **Gather your party.** Pass the iPad around. Each player picks a name, race, class, sigil, colour and look, and can write a backstory (or tap 🎲 for an idea). A portrait is drawn from those choices. Players can also **bring back a saved hero** from an earlier adventure. Pip checks the party's balance.
+1. **Gather your party.** Pass the iPad around. Each player picks a name, race, class, sigil, colour and look, and can fill in a **Who is your hero?** section: backstory, motivation (why they adventure) and desire (what they want most), or tap 🎲 for ideas. When it's their turn, the game reminds them what drives their hero, and the AI Dungeon Master uses all three to describe them. A portrait is drawn from those choices. Players can also **bring back a saved hero** from an earlier adventure. Pip checks the party's balance.
 2. **Act I · The Call.** Everyone introduces their hero in character, then one hero tries to win the trust of Maren, the shrine keeper.
 3. **Act II · The Journey.** A group stealth check past goblin wolves, a broken bridge, a nervous goblin scout and a hidden trap. The spotlight rotates so every player leads a scene.
 4. **Act III · The Climax.** Roll initiative and face Grubnak the goblin chief, taking turns in order. Earlier choices matter: Snik's secret door gives a head start, raising the alarm makes the fight harder, and learning that Grubnak fears fire makes fiery moves easier.

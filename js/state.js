@@ -98,6 +98,8 @@ function buildHero(draft, index) {
     color: draft.color,
     look: (draft.look || '').trim(),
     backstory: (draft.backstory || '').trim(),
+    motivation: (draft.motivation || '').trim(),
+    desire: (draft.desire || '').trim(),
     portrait: { ...(draft.portrait || {}) },
     level,
     xp: draft.xp || 0,
@@ -118,7 +120,7 @@ function buildHero(draft, index) {
 function upgradeHero(h) {
   if (h.powers) return h;
   const perks = perksFor(h.cls, 1);
-  h.level = 1; h.xp = 0; h.rosterId = h.rosterId || null; h.backstory = h.backstory || ''; h.portrait = h.portrait || {};
+  h.level = 1; h.xp = 0; h.rosterId = h.rosterId || null; h.backstory = h.backstory || ''; h.motivation = h.motivation || ''; h.desire = h.desire || ''; h.portrait = h.portrait || {};
   h.perks = { crit: perks.crit, shield: perks.shield, skills: perks.skills };
   h.powers = perks.powers.map(id => ({ id, used: Boolean(h.powerUsed) }));
   h.successes = h.successes || 0; h.moments = h.moments || []; h.pastDeeds = [];

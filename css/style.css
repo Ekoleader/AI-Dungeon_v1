@@ -398,6 +398,9 @@ input[type="range"] { width: 100%; min-height: 40px; accent-color: var(--burgund
 .deeds ul { margin: 2px 0 6px; padding-left: 18px; font-size: .92rem; }
 
 .end-hero .portrait { margin-bottom: 4px; }
+.character-section { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 252, 240, .55); border: 1px dashed var(--gold-deep); }
+.character-section .optional { font-weight: 400; color: var(--ink-soft); font-size: .85rem; }
+.in-character { margin: 6px 0; padding: 8px 12px; border-radius: 10px; background: #fbf1d3; border-left: 4px solid var(--gold); }
 .end-hero.levelled { box-shadow: 0 0 0 3px var(--gold), 0 0 20px rgba(212, 169, 55, .6); max-width: 240px; }
 .xp-gain { font-weight: 700; color: var(--gold-deep); }
 .level-up { font-family: var(--font-title); font-weight: 800; color: var(--burgundy); }
