@@ -28,14 +28,18 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function heroById(id) { return game.party.find(h => h.id === id); }
 
-function scene() { return STORY[game.sceneIndex]; }
+function adventure() { return adventureFor(game); }
+function story() { return adventure().scenes; }
+function scene() { return story()[game.sceneIndex]; }
+function boss() { return adventure().boss; }
 
 function listNames(names) {
   if (names.length <= 1) return names.join('');
   return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
 }
 
-function fill(text, hero) {
+function fill(text, hero, extra) {
+  for (const key in extra || {}) text = text.split('{' + key + '}').join(extra[key]);
   return text
     .replace(/\{hero\}/g, hero ? hero.name : 'the party')
     .replace(/\{party\}/g, listNames(game.party.map(h => h.name)));
@@ -86,6 +90,7 @@ function render() {
   applyTextSize();
   if (showTitle) renderTitle();
   else if (game.screen === 'setup') renderSetup();
+  else if (game.screen === 'pick') renderPick();
   else if (game.screen === 'game') renderGame();
   else renderTitle();
   const badgeCount = Object.keys(game.badges).length;
@@ -107,13 +112,13 @@ function applyTextSize() {
 }
 
 function renderTitle() {
-  const canContinue = game.screen === 'setup' || game.screen === 'game';
+  const canContinue = ['setup', 'pick', 'game'].includes(game.screen);
   app.innerHTML = `
     <section class="title-screen">
       <div class="title-card parchment">
         <div class="title-dragon" aria-hidden="true">🐉</div>
         <h1>First Quest</h1>
-        <p class="tagline">A Dungeons &amp; Dragons adventure for 3 or 4 brand-new heroes,<br>played together around one screen.</p>
+        <p class="tagline">Dungeons &amp; Dragons adventures for 3 or 4 brand-new heroes,<br>played together around one screen. ${ADVENTURES.length} quests to choose from!</p>
         <div class="title-buttons">
           ${canContinue ? `<button class="big primary" data-action="continue">▶ Continue the adventure</button>` : ''}
           <button class="big ${canContinue ? '' : 'primary'}" data-action="new-party">✨ Gather a new party</button>
@@ -241,10 +246,53 @@ function beginAdventure() {
   }
   game.party = active.map((s, i) => buildHero({ ...s, player: s.player || `Player ${i + 1}` }, i));
   game.setup = null;
-  game.screen = 'game';
-  game.sceneIndex = 0;
-  game.log = [];
   award('fellowship');
+  openPicker();
+}
+
+// ---- Choosing an adventure ---------------------------------------------------
+
+function openPicker() {
+  game.screen = 'pick';
+  showTitle = false;
+  save();
+  render();
+  window.scrollTo(0, 0);
+}
+
+function monsterChip(id) {
+  const m = MONSTERS[id];
+  if (!m) return '';
+  const pic = m.art ? `<img src="${esc(m.art)}" alt="">` : m.icon;
+  return `<span class="monster-chip" title="${esc(m.name)}"><span class="monster-icon">${pic}</span>${esc(m.name)}</span>`;
+}
+
+function renderPick() {
+  const done = doneAdventures();
+  const cards = ADVENTURES.map(a => `
+    <button class="adventure-card parchment" data-action="pick-adventure" data-value="${a.id}">
+      <span class="adv-top"><span class="adv-icon">${a.icon}</span>
+        <span class="adv-style">${esc(a.style)}</span>
+        ${done[a.id] ? '<span class="adv-done">✔ Completed</span>' : ''}</span>
+      <span class="adv-title">${esc(a.title)}</span>
+      <span class="adv-tagline">${esc(a.tagline)}</span>
+      <span class="adv-boss">Boss: <b>${esc(a.boss.name.replace(/^the /, 'The '))}</b></span>
+      <span class="adv-monsters">${a.monsters.map(monsterChip).join('')}</span>
+    </button>`).join('');
+  app.innerHTML = `
+    <section class="setup">
+      <div class="setup-intro parchment">
+        <h2>Choose your adventure</h2>
+        <p>${listNames(game.party.map(h => esc(h.name)))}, where will you go? Every adventure takes about 30-45 minutes, has three acts, and teaches the same rules in a new story. There's no wrong order.</p>
+      </div>
+      <div class="adventure-grid">${cards}</div>
+    </section>`;
+}
+
+function startAdventure(id) {
+  if (!ADVENTURE_BY_ID[id]) return;
+  game.party.forEach(h => { h.hp = h.maxHp; h.down = false; h.powerUsed = false; h.spotlights = 0; });
+  Object.assign(game, { adventureId: id, screen: 'game', sceneIndex: 0, log: [], flags: {}, inspiration: 0, spotlight: -1, battle: null, group: null, pending: null, phase: null });
   keepScreenAwake();
   enterScene();
 }
@@ -275,7 +323,7 @@ function heroCard(hero) {
 }
 
 function currentActTitle() {
-  for (let i = game.sceneIndex; i >= 0; i--) if (STORY[i].actTitle) return STORY[i].actTitle;
+  for (let i = game.sceneIndex; i >= 0; i--) if (story()[i].actTitle) return story()[i].actTitle;
   return '';
 }
 
@@ -384,7 +432,7 @@ function turnBanner(hero, text) {
 function renderIntro() {
   const hero = game.party[game.introIndex];
   return `
-    ${turnBanner(hero, `the firelight finds you. Introduce your ${RACES[hero.race].name} ${CLASSES[hero.cls].name} to the table!`)}
+    ${turnBanner(hero, `${adventure().introLine || 'the firelight finds you'}. Introduce your ${RACES[hero.race].name} ${CLASSES[hero.cls].name} to the table!`)}
     <p class="hint">Say it out loud in character, then type a line for the story if you like. Try: “I am ${esc(hero.name)}, and I've never backed down from a fight.”</p>
     <textarea id="intro-text" rows="2" placeholder="What does ${esc(hero.name)} say?"></textarea>
     <div class="button-row">
@@ -487,7 +535,7 @@ function battleTracker() {
   return `
     <div class="tracker">
       <div><span class="t-label">Party successes</span>${pips(b.successes, b.needed, 'good')}</div>
-      <div><span class="t-label">Grubnak's hits</span>${pips(b.failures, 3, 'bad')}</div>
+      <div><span class="t-label">${esc(boss().hitsLabel)}</span>${pips(b.failures, 3, 'bad')}</div>
     </div>
     <div class="turn-order"><span class="t-label">Turn order</span>${order}</div>`;
 }
@@ -508,7 +556,9 @@ function renderBattle() {
 }
 
 function battleDc(action) {
-  return game.flags.fireSecret && action.fireDc ? action.fireDc : action.dc;
+  // Learned the boss's weakness earlier? Then moves that use it are easier.
+  const knows = game.flags.weakness || game.flags.fireSecret; // fireSecret: saves from before the picker
+  return knows && action.weakDc ? action.weakDc : action.dc;
 }
 
 function renderEnd() {
@@ -520,7 +570,7 @@ function renderEnd() {
       <p>Your party earned <b>${earned.length} of ${Object.keys(BADGES).length}</b> badges. Each one is a real D&amp;D rule you now know.</p>
       <div class="button-row">
         <button class="big" data-action="badges">🏅 See what you learned</button>
-        <button class="big" data-action="replay">🔁 Replay with the same heroes</button>
+        <button class="big" data-action="choose-adventure">🗺️ Choose another adventure</button>
         <button class="big primary" data-action="new-party">✨ New party</button>
       </div>
     </div>`;
@@ -579,6 +629,7 @@ async function enterScene() {
   if (s.type === 'epilogue') {
     game.phase = 'end';
     award('questDone');
+    markAdventureDone(adventure().id);
   }
   save();
   render();
@@ -586,7 +637,7 @@ async function enterScene() {
 
 function nextScene() {
   if (busy) return;
-  game.sceneIndex = Math.min(game.sceneIndex + 1, STORY.length - 1);
+  game.sceneIndex = Math.min(game.sceneIndex + 1, story().length - 1);
   enterScene();
 }
 
@@ -661,9 +712,9 @@ function damage(hero, amount) {
 async function resolveSolo(hero, success) {
   const choice = scene().choices[game.pending.index];
   let facts = fill(success ? choice.success : choice.fail, hero);
-  if (success && choice.reward === 'inspiration' && !game.flags.fireSecret) {
+  if (success && choice.reward === 'inspiration' && !game.flags.weakness) {
     game.inspiration++;
-    game.flags.fireSecret = true;
+    game.flags.weakness = true;
   }
   if (choice.reward === 'secret') {
     if (success) game.flags.secret = true; else game.flags.alarm = true;
@@ -736,10 +787,10 @@ async function initiativeRoll(heroId) {
     addLog({ kind: 'system', text: `⚡ Turn order: ${b.order.map(id => heroById(id).name).join(' › ')}.` });
     if (game.flags.secret) {
       b.successes = 1;
-      addLog({ kind: 'system', text: 'Thanks to Snik\'s back door, the party catches Grubnak by surprise: you start with 1 success!' });
+      addLog({ kind: 'system', text: boss().secretNote });
     }
-    if (game.flags.alarm) addLog({ kind: 'system', text: 'Snik raised the alarm, so Grubnak was ready for you. The party needs 4 successes this time.' });
-    if (game.flags.fireSecret) addLog({ kind: 'system', text: '🔥 You know Grubnak fears fire! Fiery moves are easier (lower DC).' });
+    if (game.flags.alarm) addLog({ kind: 'system', text: boss().alarmNote });
+    if (game.flags.weakness || game.flags.fireSecret) addLog({ kind: 'system', text: boss().weaknessNote });
     b.turn = 0;
     skipDownHeroes();
     game.phase = 'battle';
@@ -765,7 +816,7 @@ function battleAction(index) {
   if (action.help) {
     b.helpNext = true;
     award('teamwork');
-    addLog({ kind: 'action', text: `${hero.sigil} ${hero.name} distracts Grubnak to set up the next hero. Advantage!` });
+    addLog({ kind: 'action', text: `${hero.sigil} ${hero.name} distracts ${boss().name} to set up the next hero. Advantage!` });
     advanceBattleTurn();
     return;
   }
@@ -793,11 +844,11 @@ async function resolveBattle(hero, success) {
   let facts, hurt = 0;
   if (success) {
     b.successes++;
-    facts = `${hero.name}'s move works: ${label}. Grubnak staggers back, yelping. (Party successes: ${b.successes} of ${b.needed}.)`;
+    facts = fill(boss().hit, hero, { label }) + ` (Party successes: ${b.successes} of ${b.needed}.)`;
   } else {
     b.failures++;
     hurt = rollDie(4);
-    facts = `${hero.name} tries to ${label.toLowerCase()}, but Grubnak dodges and swings his rusty cleaver: ${hero.name} takes ${hurt} damage. (Grubnak's hits: ${b.failures} of 3.)`;
+    facts = fill(boss().miss, hero, { label: label.toLowerCase(), dmg: hurt }) + ` (${boss().hitsLabel}: ${b.failures} of 3.)`;
   }
   b.lastHero = hero.id;
   game.phase = 'narrating';
@@ -811,7 +862,7 @@ async function resolveBattle(hero, success) {
 async function finishBattle(victory, hero) {
   const s = scene();
   const catcher = hero || game.party.find(h => !h.down) || game.party[0];
-  addLog({ kind: 'roll', success: victory, text: victory ? '🏆 Victory! Grubnak is beaten.' : '😬 Grubnak gets away... but not with the lantern.' });
+  addLog({ kind: 'roll', success: victory, text: victory ? boss().winLog : boss().loseLog });
   game.flags.victory = victory;
   game.phase = 'narrating';
   await narrate(fill(victory ? s.victory : s.defeat, catcher), s.brief);
@@ -1045,11 +1096,9 @@ document.addEventListener('click', event => {
       heal(healer, heroById(el.dataset.target), Math.max(1, rollDie(8) + mod(healer.scores.wis)), 'Cure Wounds');
       break;
     }
-    case 'replay':
-      game.party.forEach(h => { h.hp = h.maxHp; h.down = false; h.powerUsed = false; h.spotlights = 0; });
-      Object.assign(game, { sceneIndex: 0, log: [], flags: {}, inspiration: 0, spotlight: -1, battle: null, group: null, pending: null });
-      enterScene();
-      break;
+    case 'replay': startAdventure(adventure().id); break;
+    case 'choose-adventure': openPicker(); break;
+    case 'pick-adventure': startAdventure(value); break;
     case 'pip-quick': askPip(el.dataset.q); break;
     case 'pip-open': openPipModal(); break;
     case 'pip-send': askPip(document.getElementById('pip-question').value); break;
@@ -1065,7 +1114,7 @@ document.addEventListener('click', event => {
     case 'test-ai': testAI(); break;
     case 'test-voice':
       storeVoiceSettings();
-      speak('Hear me, adventurers! The Everlight has been stolen, and only you can bring it home.', 'dm');
+      speak('Hear me, adventurers! Danger stirs, and only you can stop it.', 'dm');
       break;
     case 'speak': {
       const entry = game.log[Number(el.dataset.index)];
