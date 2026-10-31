@@ -247,8 +247,12 @@ function segmented(seatIndex, field, options, current) {
 function portraitPicker(target, draft) {
   const p = draft.portrait || {};
   const f = portraitFeatures(draft);
+  const modeRow = heroArt(draft) ? `<div class="pp-row"><span class="pp-label">Picture</span>
+      <button class="seg mini ${usesArt(draft) ? 'on' : ''}" data-action="portrait-pick" data-target="${target}" data-field="mode" data-value="art">🖼️ Painted</button>
+      <button class="seg mini ${usesArt(draft) ? '' : 'on'}" data-action="portrait-pick" data-target="${target}" data-field="mode" data-value="drawn">✏️ Drawn</button></div>` : '';
+  if (usesArt(draft)) return `<div class="portrait-picker">${modeRow}<p class="small">A painted portrait for every ${RACES[draft.race].name} ${CLASSES[draft.cls].name}. Pick ✏️ Drawn to design your own look instead.</p></div>`;
   return `
-    <div class="portrait-picker">
+    <div class="portrait-picker">${modeRow}
       <div class="pp-row"><span class="pp-label">Skin</span>${SKIN_TONES.map(c => `<button class="swatch small ${f.skin === c ? 'on' : ''}" style="background:${c}" data-action="portrait-pick" data-target="${target}" data-field="skin" data-value="${c}" aria-label="Skin tone"></button>`).join('')}</div>
       <div class="pp-row"><span class="pp-label">Hair</span>${Object.entries(HAIR_COLOURS).map(([k, c]) => `<button class="swatch small ${f.hair === k ? 'on' : ''}" style="background:${c}" data-action="portrait-pick" data-target="${target}" data-field="hair" data-value="${k}" aria-label="${k} hair"></button>`).join('')}</div>
       <div class="pp-row"><span class="pp-label">Style</span>${Object.entries(HAIR_STYLES).map(([k, name]) => `<button class="seg mini ${f.style === k ? 'on' : ''}" data-action="portrait-pick" data-target="${target}" data-field="style" data-value="${k}">${name}</button>`).join('')}</div>
@@ -1538,7 +1542,7 @@ document.addEventListener('click', event => {
     case 'seat-clear': game.setup.seats[el.dataset.seat] = defaultSeat(Number(el.dataset.seat)); save(); render(); break;
     case 'portrait-pick': {
       const draft = el.dataset.target === 'edit' ? editDraft : game.setup.seats[el.dataset.target.split(':')[1]];
-      if (el.dataset.field === 'reset') draft.portrait = {};
+      if (el.dataset.field === 'reset') draft.portrait = draft.portrait?.mode ? { mode: draft.portrait.mode } : {};
       else draft.portrait = { ...(draft.portrait || {}), [el.dataset.field]: value };
       if (el.dataset.target === 'edit') drawHeroEditor(); else { save(); render(); }
       break;

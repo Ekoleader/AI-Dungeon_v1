@@ -354,6 +354,8 @@ input[type="range"] { width: 100%; min-height: 40px; accent-color: var(--burgund
 /* ---- Portraits, saved heroes, pause and the Hall of Heroes (batch 2) ----- */
 .portrait { display: block; flex: none; border-radius: 50%; border: 3px solid var(--gold); box-shadow: 0 2px 6px rgba(0, 0, 0, .3); background: var(--hero, var(--burgundy)); }
 .seat-portrait .portrait { border-width: 4px; }
+.portrait.art { position: relative; overflow: hidden; background: #f2e4c2; border-color: var(--hero, var(--gold)); }
+.portrait.art img { position: absolute; width: 145%; height: 145%; left: -22.5%; top: -2%; max-width: none; }
 .seat-head-text { display: flex; flex-direction: column; align-items: flex-start; }
 .portrait-picker { display: flex; flex-direction: column; gap: 6px; }
 .pp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }

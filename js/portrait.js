@@ -2,6 +2,24 @@
 // their race, class, colour, a few picks (skin, hair) and words in their
 // "what do they look like?" description. Free, instant, and works offline.
 
+// Painted portraits for some race + class pairs (in img/heroes/). Heroes
+// without one, or whose player picks "Drawn", get the SVG cartoon below.
+const HERO_ART = {
+  'dwarf-cleric': 'img/heroes/dwarf-cleric.jpg',
+  'dwarf-fighter': 'img/heroes/dwarf-fighter.jpg',
+  'elf-rogue': 'img/heroes/elf-rogue.jpg',
+  'elf-wizard': 'img/heroes/elf-wizard.jpg',
+  'halfling-rogue': 'img/heroes/halfling-rogue.jpg',
+  'halfling-wizard': 'img/heroes/halfling-wizard.jpg',
+  'human-cleric': 'img/heroes/human-cleric.jpg',
+  'human-fighter': 'img/heroes/human-fighter.jpg',
+};
+
+function heroArt(hero) { return HERO_ART[`${hero.race}-${hero.cls}`] || null; }
+
+// Painted art is used when it exists, unless the player chose the drawn style.
+function usesArt(hero) { return Boolean(heroArt(hero)) && hero.portrait?.mode !== 'drawn'; }
+
 const SKIN_TONES = ['#f8dcc8', '#eebf98', '#d39b6c', '#a96d45', '#7b4a2b', '#4f3020', '#a9c99a', '#9fb3d9'];
 
 const HAIR_COLOURS = {
@@ -77,6 +95,11 @@ function shade(hex, amount) {
 
 // Returns an <svg> string. `size` is in CSS pixels.
 function portraitSVG(hero, size = 64) {
+  if (usesArt(hero)) {
+    const label = `${hero.name || 'Hero'}, ${RACES[hero.race]?.name || ''} ${CLASSES[hero.cls]?.name || ''}`;
+    // Zoomed in a little so the face fills the circle, even on small hero cards.
+    return `<span class="portrait art" role="img" aria-label="${esc(label)}" style="--hero:${hero.color || '#444b5a'};width:${size}px;height:${size}px"><img src="${heroArt(hero)}" alt="" decoding="async"></span>`;
+  }
   const f = portraitFeatures(hero);
   const colour = hero.color || '#444b5a';
   const skin = f.skin, skinDark = shade(skin, -0.12), hair = f.hairColour, hairDark = shade(hair, -0.15);
