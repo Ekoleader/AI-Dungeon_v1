@@ -6,6 +6,10 @@
 //   data-action   every button says what it does, e.g. data-action="roll";
 //                 one click handler at the bottom reads it and calls a function.
 
+// Shown on the title screen so you can tell the iPad has the latest update.
+// Keep it the same as the ?v= numbers in index.html.
+const APP_VERSION = '2026-10-31b';
+
 let game = loadGame() || newState();
 let showTitle = true;   // always open on the title screen; "Continue" resumes
 let busy = false;       // true while dice roll or the DM is speaking
@@ -151,6 +155,7 @@ function renderTitle() {
           </div>`).join('')}
         </div>` : ''}
         <p class="title-note">${aiEnabled() ? '🔮 AI Dungeon Master is on.' : '📜 Playing with the written story. Add an API key in ⚙️ Settings for an AI Dungeon Master.'}</p>
+        <p class="version-note">Version ${APP_VERSION}</p>
       </div>
     </section>`;
 }
@@ -206,7 +211,8 @@ function resumePaused(id) {
 function defaultSeat(i) {
   return {
     player: '', name: '', pronouns: '',
-    race: ['human', 'elf', 'dwarf', 'halfling'][i],
+    // Starting picks are pairs that have painted portraits.
+    race: ['human', 'elf', 'halfling', 'dwarf'][i],
     cls: ['fighter', 'wizard', 'rogue', 'cleric'][i],
     sigil: SIGILS[[0, 2, 4, 6][i]],
     color: COLORS[i],
