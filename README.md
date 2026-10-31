@@ -19,12 +19,24 @@ Monsters show emoji icons for now. To swap in a photo of a mini-figure later, ad
 
 ## How a game plays (The Stolen Everlight)
 
-1. **Gather your party.** Pass the iPad around. Each player picks a name, race, class, sigil, colour and look. Pip checks the party's balance.
+1. **Gather your party.** Pass the iPad around. Each player picks a name, race, class, sigil, colour and look, and can write a backstory (or tap 🎲 for an idea). A portrait is drawn from those choices. Players can also **bring back a saved hero** from an earlier adventure. Pip checks the party's balance.
 2. **Act I · The Call.** Everyone introduces their hero in character, then one hero tries to win the trust of Maren, the shrine keeper.
 3. **Act II · The Journey.** A group stealth check past goblin wolves, a broken bridge, a nervous goblin scout and a hidden trap. The spotlight rotates so every player leads a scene.
 4. **Act III · The Climax.** Roll initiative and face Grubnak the goblin chief, taking turns in order. Earlier choices matter: Snik's secret door gives a head start, raising the alarm makes the fight harder, and learning that Grubnak fears fire makes fiery moves easier.
 
+5. **After the quest.** Every hero earns XP, may level up, and the adventure is added to their record of deeds.
+
 The D&D rules you'll learn along the way are ability checks, modifiers, Difficulty Class (DC), proficiency, Help and advantage, Inspiration, group checks, hit points, healing, natural 20s and 1s, initiative and turn order.
+
+## Saved games and heroes
+
+- **Pause:** tap **⏸ Pause** above the story. The adventure is saved exactly where you were, and the main menu shows it under *Paused adventures* with a **▶ Resume** button. You can keep several paused adventures. Starting a new party never throws away an unfinished one: it is paused automatically.
+- **Hall of Heroes (🏰 on the main menu):** every hero lives on with their portrait, backstory, level, XP and a record of every adventure they've finished. Tap a hero to see their character sheet, edit their looks and backstory, or retire them.
+- **Levelling up:** heroes get 300 XP for finishing an adventure, 100 more for beating the villain and 25 per successful roll. Levels go up to 5. Each level adds hit points and something new, like the Fighter's *Action Surge*, the Wizard's *Shield* or the Cleric's *Bless*. Tap a hero's portrait during play to see their abilities.
+- **Portraits** are drawn by the game itself (free, offline). They follow race, class and colour, the skin and hair picks, and words in the description: try *beard*, *freckles*, *scar*, *glasses*, *eyepatch*, *grin* or *grumpy*.
+- **Backups:** everything is stored only in this iPad's Safari. In ⚙️ **Settings → Backup** (or the Hall of Heroes), tap **💾 Export a backup** now and then; the file lands in the Files app under Downloads. **📂 Import a backup** restores it or moves your heroes to another device. Importing adds to what's there and never deletes anything. Your API key is never put in the file.
+
+> Clearing Safari's website data, or not opening the game for many weeks, can erase what's stored on the iPad. That's what the backup file is for.
 
 ## Playing it
 
@@ -80,7 +92,9 @@ Claude is handed each scene's written text as "key facts" and asked to retell it
 | `css/style.css` | All the looks. Colours are variables at the very top (`--burgundy`, `--gold`...). | Change `--burgundy` to a blue and watch the whole game re-theme. |
 | `js/data.js` | The **content**: races, classes, skills, the Everlight story, badges and Pip's answers. No logic, just words and numbers. | Add a new choice to a scene, or a new race. |
 | `js/adventures.js` | The other five adventures, the monster list and the boss settings the picker shows. | Change a boss's weakness by moving `weakDc` onto a different move. |
-| `js/state.js` | The game's memory: one `game` object, saved to `localStorage` after every change, plus the hero maths (`mod()`, `skillBonus()`). | Change a class's starting `scores` in `data.js` and see the HP change. |
+| `js/state.js` | The game's memory: one `game` object, saved to `localStorage` after every change, plus the hero maths (`mod()`, `skillBonus()`, `buildHero()`). | Change a class's starting `scores` in `data.js` and see the HP change. |
+| `js/roster.js` | Heroes that live on between adventures: XP, levels and what each class unlocks (`LEVEL_PERKS`), paused adventures, and the backup file. | Give the Wizard a new level 2 ability in `LEVEL_PERKS`. |
+| `js/portrait.js` | Draws each hero's portrait as an SVG picture from their race, class, colour and description. | Add a new word to `LOOK_WORDS`, like *tattoo*, and draw it. |
 | `js/dice.js` | Rolling dice (advantage, Halfling luck) and the spinning-die animation. | Make the animation longer by changing `duration`. |
 | `js/narrator.js` | Talks to Claude for the DM and Pip, with the offline fallbacks. | Rewrite `DM_SYSTEM` to make the narrator a pirate. |
 | `js/voice.js` | Reads the story aloud with the browser's built-in speech (Web Speech API). | Change Pip's `pitch` to make the owl squeakier. |
@@ -88,10 +102,9 @@ Claude is handed each scene's written text as "key facts" and asked to retell it
 
 ### Simplified rules (on purpose)
 
-To keep a first session smooth, a few D&D rules are simplified: a natural 20 always succeeds and a natural 1 always fails on checks; knocked-out heroes get back up at 1 HP at the next scene; Second Wind and Cure Wounds are once per adventure; there are no spell slots or saving throws. Pip mentions this when it matters.
+To keep a first session smooth, a few D&D rules are simplified: a natural 20 always succeeds and a natural 1 always fails on checks; knocked-out heroes get back up at 1 HP at the next scene; special abilities like Second Wind, Cure Wounds and Bless are once per adventure; levels stop at 5 and use a quicker XP table than the books; there are no spell slots or saving throws. Pip mentions this when it matters.
 
 ## Ideas for what to build next
 
-- Keep heroes between adventures so they can **level up**.
 - Sound effects for dice and a background music toggle.
 - A "DM mode" that shows one player the DCs and secrets, so someone can learn to run the game.
