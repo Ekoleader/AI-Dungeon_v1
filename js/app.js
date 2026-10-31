@@ -256,11 +256,27 @@ function portraitPicker(target, draft) {
     </div>`;
 }
 
-function backstoryField(attrs, value, name) {
+// "Who is your hero?": backstory, motivation and desire. `attr` is the
+// data attribute that says where typing goes ("data-seat="0"" or "data-edit").
+function characterSection(draft, attrFor, ideaTarget) {
+  const name = esc((draft.name || '').trim() || 'your hero');
   return `
-    <label>Backstory <span class="optional">(optional, the AI Dungeon Master uses it)</span>
-      <textarea ${attrs} data-field="backstory" rows="4" placeholder="Where is ${esc(name || 'your hero')} from? What do they want more than anything? What are they afraid of?">${esc(value)}</textarea>
-    </label>`;
+    <div class="character-section">
+      <div class="pick-label">Who is ${name}? <span class="optional">(optional: helps you play in character, and the AI Dungeon Master uses it)</span></div>
+      ${CHARACTER_FIELDS.map(f => `
+        <label>${f.label} <span class="optional">${f.hint}</span>
+          <textarea ${attrFor(f.key)} rows="${f.rows}" placeholder="${esc(f.placeholder((draft.name || '').trim() || 'your hero'))}">${esc(draft[f.key] || '')}</textarea>
+        </label>`).join('')}
+      <div class="button-row"><button class="chip" data-action="random-character" data-seat="${ideaTarget}">🎲 Give me ideas</button></div>
+    </div>`;
+}
+
+// A one-line reminder of what drives the hero, for the spotlight moment.
+function inCharacterHint(hero) {
+  const bits = [];
+  if (hero.motivation) bits.push(`<b>Drive:</b> ${esc(hero.motivation)}`);
+  if (hero.desire) bits.push(`<b>Wants:</b> ${esc(hero.desire)}`);
+  return bits.length ? `<p class="hint in-character">🎭 Play it in character! ${bits.join(' · ')}</p>` : '';
 }
 
 function renderSeat(seat, i) {
@@ -303,8 +319,7 @@ function renderSeat(seat, i) {
     </label>
     <div class="pick-label">Portrait</div>
     ${portraitPicker('seat:' + i, seat)}
-    ${backstoryField(`data-seat="${i}"`, seat.backstory, seat.name)}
-    <div class="button-row"><button class="chip" data-action="random-backstory" data-seat="${i}">🎲 Give me a backstory idea</button></div>
+    ${characterSection(seat, key => `data-seat="${i}" data-field="${key}"`, i)}
     ${seatPreviewStats(seat)}
   </div>`;
 }
@@ -364,7 +379,7 @@ function beginAdventure() {
     return;
   }
   const records = active.map((s, i) => {
-    const draft = { ...s, player: s.player.trim() || `Player ${i + 1}`, name: s.name.trim(), look: s.look.trim(), backstory: (s.backstory || '').trim() };
+    const draft = { ...s, player: s.player.trim() || `Player ${i + 1}`, name: s.name.trim(), look: s.look.trim(), backstory: (s.backstory || '').trim(), motivation: (s.motivation || '').trim(), desire: (s.desire || '').trim() };
     const existing = s.rosterId ? rosterHero(s.rosterId) : null;
     if (!existing) return storeRosterHero(newRosterHero(draft));
     HERO_FIELDS.forEach(f => { existing[f] = draft[f]; });
@@ -569,6 +584,7 @@ function renderIntro() {
   const hero = game.party[game.introIndex];
   return `
     ${turnBanner(hero, `${adventure().introLine || 'the firelight finds you'}. Introduce your ${RACES[hero.race].name} ${CLASSES[hero.cls].name} to the table!`)}
+    ${inCharacterHint(hero)}
     <p class="hint">Say it out loud in character, then type a line for the story if you like. Try: “I am ${esc(hero.name)}, and I've never backed down from a fight.”</p>
     <textarea id="intro-text" rows="2" placeholder="What does ${esc(hero.name)} say?"></textarea>
     <div class="button-row">
@@ -591,6 +607,7 @@ function renderChoices() {
   const choices = scene().choices;
   return `
     ${turnBanner(hero, 'the spotlight is on you. What do you do? Talk it over with the table first!')}
+    ${inCharacterHint(hero)}
     <div class="choices">${choices.map((c, i) => (!c.onlyFor || c.onlyFor.includes(hero.cls)) ? choiceButton(hero, c, i, 'choose') : '').join('')}</div>`;
 }
 
@@ -805,12 +822,12 @@ function openHeroSheet(record, inGame) {
         ${next ? `<li class="locked">🔒 <b>${esc(perkName(next))}</b> <small>(at level ${level + 1})</small>: ${esc(perkBlurb(next))}</li>` : ''}
       </ul>
       ${r.look ? `<div class="pick-label">Looks</div><p>${esc(r.look)}</p>` : ''}
-      <div class="pick-label">Backstory</div>
-      ${r.backstory ? paragraphs(r.backstory) : '<p class="small">No backstory yet. Add one and the AI Dungeon Master will weave it into the story.</p>'}
+      <div class="pick-label">Who they are</div>
+      ${CHARACTER_FIELDS.some(f => r[f.key]) ? CHARACTER_FIELDS.filter(f => r[f.key]).map(f => `<p><b>${f.label}:</b> ${esc(r[f.key])}</p>`).join('') : '<p class="small">Nothing written yet. Add a backstory, motivation and desire, and the AI Dungeon Master will weave them into the story.</p>'}
       ${record ? `<div class="pick-label">Deeds</div>
       ${deeds.length ? `<ul class="deeds">${deeds.map(d => `<li><b>${esc(d.adventure)}</b> <small>${new Date(d.when).toLocaleDateString()} · ${esc(d.outcome)} · +${d.xp} XP</small>${d.highlights?.length ? `<ul>${d.highlights.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul>` : '<p class="small">No adventures finished yet.</p>'}
       <div class="button-row">
-        <button class="big primary" data-action="edit-hero" data-id="${esc(record.id)}">✏️ Edit looks &amp; backstory</button>
+        <button class="big primary" data-action="edit-hero" data-id="${esc(record.id)}">✏️ Edit looks &amp; story</button>
         ${game.screen === 'game' ? '' : `<button class="big danger" data-action="delete-hero" data-id="${esc(record.id)}">🗑️ Retire hero</button>`}
       </div>` : ''}
     </div>`);
@@ -840,10 +857,7 @@ function drawHeroEditor() {
     <div class="swatches">${COLORS.map(c => `<button class="swatch ${c === d.color ? 'on' : ''}" style="background:${c}" data-action="edit-pick" data-field="color" data-value="${c}" aria-label="Colour ${c}"></button>`).join('')}</div>
     <label>What do they look like?<textarea data-edit="look" rows="2">${esc(d.look)}</textarea></label>
     ${portraitPicker('edit', d)}
-    ${backstoryField('data-edit="backstory"', d.backstory, d.name)}
-    <div class="button-row">
-      <button class="chip" data-action="random-backstory" data-seat="edit">🎲 Backstory idea</button>
-    </div>
+    ${characterSection(d, key => `data-edit="${key}"`, 'edit')}
     <div class="button-row">
       <button class="big primary" data-action="save-hero">💾 Save</button>
       <button class="big" data-action="roster-sheet" data-id="${esc(d.id)}">Cancel</button>
@@ -858,7 +872,7 @@ function saveHeroEdits() {
   // If this hero is in the current adventure, show the changes there too.
   (game.party || []).forEach(h => {
     if (h.rosterId !== saved.id) return;
-    ['name', 'player', 'pronouns', 'sigil', 'color', 'look', 'backstory', 'portrait'].forEach(f => { h[f] = saved[f]; });
+    ['name', 'player', 'pronouns', 'sigil', 'color', 'look', 'backstory', 'motivation', 'desire', 'portrait'].forEach(f => { h[f] = saved[f]; });
   });
   save();
   editDraft = null;
@@ -1529,18 +1543,16 @@ document.addEventListener('click', event => {
       if (el.dataset.target === 'edit') drawHeroEditor(); else { save(); render(); }
       break;
     }
-    case 'random-backstory': {
-      if (el.dataset.seat === 'edit') {
-        editDraft.backstory = randomBackstory(editDraft.name);
-        const box = document.querySelector('[data-edit="backstory"]');
-        if (box) box.value = editDraft.backstory;
-      } else {
-        const seat = game.setup.seats[el.dataset.seat];
-        seat.backstory = randomBackstory(seat.name);
-        const box = document.querySelector(`textarea[data-seat="${el.dataset.seat}"][data-field="backstory"]`);
-        if (box) box.value = seat.backstory;
-        save();
+    case 'random-character': {
+      const editing = el.dataset.seat === 'edit';
+      const draft = editing ? editDraft : game.setup.seats[el.dataset.seat];
+      const ideas = randomCharacter(draft.name);
+      Object.assign(draft, ideas);
+      for (const key in ideas) {
+        const box = document.querySelector(editing ? `[data-edit="${key}"]` : `textarea[data-seat="${el.dataset.seat}"][data-field="${key}"]`);
+        if (box) box.value = ideas[key];
       }
+      if (!editing) save();
       break;
     }
     case 'export': exportBackup(); break;

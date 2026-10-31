@@ -115,7 +115,18 @@ function saveRoster(list) { writeJson(ROSTER_KEY, list); }
 function rosterHero(id) { return loadRoster().find(r => r.id === id) || null; }
 
 // The fields a player chooses (as opposed to earned ones like XP).
-const HERO_FIELDS = ['player', 'name', 'pronouns', 'race', 'cls', 'sigil', 'color', 'look', 'backstory', 'portrait'];
+const HERO_FIELDS = ['player', 'name', 'pronouns', 'race', 'cls', 'sigil', 'color', 'look', 'backstory', 'motivation', 'desire', 'portrait'];
+
+// The "Who is your hero?" section. These help players act in character, and
+// the AI Dungeon Master uses them when it describes the heroes.
+const CHARACTER_FIELDS = [
+  { key: 'backstory', label: 'Backstory', hint: 'their life before the adventure', rows: 3,
+    placeholder: name => `Where does ${name} come from? Who raised them? What happened that set them on the road?` },
+  { key: 'motivation', label: 'Motivation', hint: 'why they go adventuring', rows: 2,
+    placeholder: name => `Why does ${name} face danger? A promise, revenge, curiosity, a friend in need?` },
+  { key: 'desire', label: 'Desire', hint: 'what they want more than anything', rows: 2,
+    placeholder: name => `What does ${name} dream of? Fame, treasure, a home, an answer, to be forgiven?` },
+];
 
 function newRosterHero(draft) {
   const r = { id: newId('r'), xp: 0, level: 1, adventures: 0, deeds: [], created: Date.now(), updated: Date.now() };
@@ -296,7 +307,7 @@ function importBackup(data) {
 GLOSSARY.unshift(
   { keys: ['level up', 'levelling', 'leveling', 'level'], answer: 'Heroes gain experience points (XP) by finishing adventures. Enough XP and they level up: more hit points and a new ability. This app goes up to level 5, and your heroes are saved between adventures so they keep growing.' },
   { keys: ['xp', 'experience'], answer: 'Experience points (XP) measure how much a hero has learned. Here every hero gets 300 XP for finishing an adventure, 100 more for beating the villain, and 25 for each roll they succeed on.' },
-  { keys: ['backstory', 'background'], answer: 'A backstory is your hero\'s life before the adventure: where they grew up, what they want, what they fear. It gives you ideas for roleplay, and the AI Dungeon Master will weave it into the story.' },
+  { keys: ['backstory', 'background', 'motivation', 'desire', 'in character'], answer: 'Your hero\'s backstory is their life before the adventure. Their motivation is why they risk danger, and their desire is what they want most. When it\'s your turn, ask "what would my hero do?" instead of "what\'s the best move?". The AI Dungeon Master uses all three in the story.' },
 );
 
 BADGES.levelUp = { icon: '⬆️', name: 'Level Up!', lesson: 'Experience points (XP) make heroes stronger between adventures.' };
@@ -309,7 +320,7 @@ const BACKSTORY_IDEAS = {
     'spent years as a city guard who never caught anyone', 'was found as a baby in a basket of turnips', 'grew up in a library, reading every book twice',
     'is the youngest of eleven noisy siblings', 'worked in a mine until a cave-in changed everything', 'was a temple bell-ringer with a habit of oversleeping',
   ],
-  goal: [
+  motivation: [
     'wants to find a long-lost sister', 'dreams of seeing a real dragon (from a safe distance)', 'hopes to pay back an old debt to a kind stranger',
     'is searching for a legendary recipe', 'wants to prove the family name means something', 'promised a dying mentor to protect the weak',
     'is collecting stories to write the greatest book ever', 'wants enough gold to rebuild their burned-down home',
@@ -318,10 +329,20 @@ const BACKSTORY_IDEAS = {
     'is secretly terrified of chickens', 'hums when nervous, which is often', 'names every weapon they own', 'never turns down a dare',
     'keeps a pressed flower from home in their pocket', 'talks to their pet beetle, Gerald', 'can\'t resist a shiny trinket', 'always has a snack ready to share',
   ],
+  desire: [
+    'To be sung about in a tavern song, just once.', 'A cosy cottage with a garden and absolutely no monsters.', 'To be forgiven by the friend they let down.',
+    'To learn the true name of the stars.', 'A seat on the city council, to fix things properly.', 'To find out who their real parents were.',
+    'The biggest, shiniest treasure hoard in the land.', 'To make their grumpy old teacher proud.', 'A real friend who never leaves.',
+  ],
 };
 
-function randomBackstory(name) {
+// Fills all three character boxes with a matching set of ideas.
+function randomCharacter(name) {
   const pick = list => list[Math.floor(Math.random() * list.length)];
   const who = (name || '').trim() || 'This hero';
-  return `${who} ${pick(BACKSTORY_IDEAS.origin)}, ${pick(BACKSTORY_IDEAS.goal)}, and ${pick(BACKSTORY_IDEAS.quirk)}.`;
+  return {
+    backstory: `${who} ${pick(BACKSTORY_IDEAS.origin)} and ${pick(BACKSTORY_IDEAS.quirk)}.`,
+    motivation: `${who} ${pick(BACKSTORY_IDEAS.motivation)}.`,
+    desire: pick(BACKSTORY_IDEAS.desire),
+  };
 }

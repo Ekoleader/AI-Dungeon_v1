@@ -17,7 +17,7 @@ Rules:
 - Never decide what a hero says, thinks or feels. Describe the world and the consequences.
 - Stay inside this scene. Don't invent new quests or skip ahead in the story.
 - Match the adventure's setting (it may be classic fantasy or steampunk). Monsters and zombies can be spooky or silly, never gory.
-- Heroes may have a backstory and past adventures. Now and then, weave in one small detail from them (a home, a fear, a goal, an old foe) to make the moment personal. Never let it change the key facts.`;
+- Heroes may have a backstory, a motivation (why they adventure), a desire (what they want most) and past adventures. Use them to describe each hero in a way that fits who they are, and now and then let the world brush against them: a sight that stirs a hero's desire, a moment that tests their motivation, an echo of their past. Use one such detail per reply at most, favour the hero in the spotlight, and never let it change the key facts.`;
 
 const PIP_SYSTEM = `You are Pip, a cheeky but kind owl who mentors brand-new D&D players during their very first adventure.
 The players are total beginners sitting around one iPad.
@@ -69,6 +69,8 @@ function partySummary(party) {
       `HP ${h.hp}/${h.maxHp}${h.down ? ', knocked out' : ''}.${h.look ? ' Looks: ' + h.look : ''}`,
     ];
     if (h.backstory) lines.push(`  Backstory: ${h.backstory.slice(0, 500)}`);
+    if (h.motivation) lines.push(`  Motivation: ${h.motivation.slice(0, 250)}`);
+    if (h.desire) lines.push(`  Desire: ${h.desire.slice(0, 250)}`);
     if (h.pastDeeds && h.pastDeeds.length) lines.push(`  Past adventures: ${h.pastDeeds.join('; ')}`);
     return lines.join('\n');
   }).join('\n');
