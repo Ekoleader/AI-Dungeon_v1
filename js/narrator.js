@@ -15,7 +15,8 @@ Rules:
 - Speak to the heroes in second person and use their names. Use each hero's stated pronouns; if unsure, use their name.
 - You are given the KEY FACTS of this moment. Keep every fact, including who succeeded or failed. Never change a roll's result.
 - Never decide what a hero says, thinks or feels. Describe the world and the consequences.
-- Stay inside this scene. Don't invent new quests or skip ahead in the story.`;
+- Stay inside this scene. Don't invent new quests or skip ahead in the story.
+- Match the adventure's setting (it may be classic fantasy or steampunk). Monsters and zombies can be spooky or silly, never gory.`;
 
 const PIP_SYSTEM = `You are Pip, a cheeky but kind owl who mentors brand-new D&D players during their very first adventure.
 The players are total beginners sitting around one iPad.
@@ -79,6 +80,7 @@ function recentStory(log) {
 async function dmNarrate(game, facts, brief) {
   if (!aiEnabled()) return { text: facts, ai: false };
   const prompt = [
+    'ADVENTURE: ' + adventureFor(game).title + '. Setting: ' + adventureFor(game).setting, '',
     'THE PARTY:', partySummary(game.party), '',
     'THE STORY SO FAR:', recentStory(game.log) || '(the adventure is just beginning)', '',
     'SCENE:', brief, '',
@@ -107,9 +109,9 @@ function pipOffline(question) {
 
 async function pipAnswer(game, question) {
   if (!aiEnabled()) return { text: pipOffline(question), ai: false };
-  const scene = STORY[game.sceneIndex];
+  const scene = game.screen === 'game' ? adventureFor(game).scenes[game.sceneIndex] : null;
   const prompt = [
-    'Current scene: ' + (scene ? scene.title + '. ' + scene.brief : 'Creating characters.'),
+    'Current scene: ' + (scene ? adventureFor(game).title + ', ' + scene.title + '. ' + scene.brief : 'Creating characters or choosing an adventure.'),
     'Party:', partySummary(game.party || []), '',
     'A player asks: ' + question,
   ].join('\n');
