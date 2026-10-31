@@ -10,9 +10,10 @@
 //   reward: 'secret'       success = start the fight with 1 success; failure = the boss
 //                          is ready, so the party needs 4 successes instead of 3.
 //
-// Monster art comes later. For now each monster has an emoji `icon`. When the
-// photos of the mini-figures arrive, add an `art: 'img/monsters/<id>.jpg'`
-// line to that monster and the picker will show the picture instead.
+// Each monster has an emoji `icon`. Monsters with a picture also have
+// `art: 'img/monsters/<name>.jpg'`, shown on the adventure cards and at the top of
+// any scene that names that monster with `monster: '<id>'`. To add a picture,
+// drop a square image in img/monsters/ and add the `art` line.
 
 const MONSTERS = {
   beerGolem:     { name: 'Beer Golem',          icon: '🍺' },
@@ -31,7 +32,14 @@ const MONSTERS = {
   hellPug:       { name: 'Hell Pug',            icon: '🐶' },
   erinyes:       { name: 'Erinyes',             icon: '🪽' },
   ratmancer:     { name: 'Ratmancer',           icon: '🐀' },
-  zombie:        { name: 'Zombies',             icon: '🧟' },
+  zombie:        { name: 'Steampunk Zombie',    icon: '🧟', art: 'img/monsters/zombie.jpg' },
+  zombieRats:    { name: 'Zombie Rats',         icon: '🧟' },
+  sporeZombies:  { name: 'Spore Zombies',       icon: '🧟' },
+  clockworkGolem:{ name: 'Clockwork Golem',     icon: '⚙️', art: 'img/monsters/clockwork-golem.jpg' },
+  stitched:      { name: 'Frankenstein Creature', icon: '⚡', art: 'img/monsters/frankenstein-creature.jpg' },
+  automaton:     { name: 'Automaton',           icon: '🤖', art: 'img/monsters/automaton.jpg' },
+  mechanus:      { name: 'Mechanus',            icon: '🪐', art: 'img/monsters/mechanus.jpg' },
+  clockDragon:   { name: 'Clockwork Dragon',    icon: '🐉', art: 'img/monsters/clockwork-dragon.jpg' },
   dragon:        { name: 'Dragon',              icon: '🐉' },
   goblin:        { name: 'Goblins',             icon: '👹' },
   wolf:          { name: 'Goblin Wolves',       icon: '🐺' },
@@ -65,7 +73,7 @@ const ADVENTURES = [
   {
     id: 'ratmancer', icon: '🐀', title: 'The Ratmancer\'s Engine',
     tagline: 'The lamps of Brassport are going dark, and zombie rats are on the march.',
-    style: 'Steampunk', monsters: ['ratmancer', 'catBandit', 'goblinBomber', 'wyrmling', 'zombie'],
+    style: 'Steampunk', monsters: ['ratmancer', 'clockworkGolem', 'catBandit', 'goblinBomber', 'wyrmling', 'zombieRats'],
     setting: BRASSPORT + ' This adventure: a sewer wizard called the Ratmancer is building an engine under the city, powered by the fire of a captured baby dragon.',
     introLine: 'the gaslight finds you',
     boss: {
@@ -112,20 +120,20 @@ const ADVENTURES = [
         fail: 'WHOOSH! A pipe bursts and sprays hot steam. Everyone slips, bumps and tumbles down a gutter in a heap. Ouch (1 damage each). At least the rats went this way.',
       },
       {
-        id: 'floodgate', act: 2, title: 'The Rusted Floodgate', type: 'solo',
-        narration: 'The rats squeeze under a giant iron floodgate into the sewers. It\'s rusted shut, and behind it the dark water gurgles and rises.\n\n{hero}, the party looks to you. How do we get through?',
-        brief: 'A rusted floodgate blocks the way into the sewers. The spotlight hero decides how to get through.',
+        id: 'floodgate', act: 2, title: 'The Rusted Floodgate', type: 'solo', monster: 'clockworkGolem',
+        narration: 'The rats squeeze under a giant iron floodgate into the sewers. It\'s rusted shut. Beside it stands the old gate-keeper, a Clockwork golem as tall as a house, with a clock ticking in its chest. It\'s fast asleep, puffing little clouds of steam... for now.\n\n{hero}, the party looks to you. How do we get through without waking it?',
+        brief: 'A rusted floodgate blocks the way into the sewers, guarded by a huge sleeping Clockwork golem. The spotlight hero decides how to get through. Failing means the golem stirs and swats someone before nodding off again.',
         tip: { title: 'Helping = advantage', text: 'Before someone rolls, any friend can Help. That gives advantage: roll two d20s and keep the higher one. Tap a friend\'s "helps" button before you roll!' },
         choices: [
           { label: 'Heave the great valve wheel', skill: 'athletics', dc: 12, damageOnFail: 4,
             success: '{hero} grabs the valve wheel and heaves. SCREEEECH. The gate grinds open and the party wades through.',
-            fail: 'The wheel spins loose and whacks {hero} on the shoulder before the gate finally groans open.' },
+            fail: 'The wheel shrieks. The golem\'s eyes flicker on, and a sleepy brass fist swats {hero} before it starts snoring again. The gate groans open.' },
           { label: 'Find the maintenance hatch', skill: 'investigation', dc: 10, damageOnFail: 4,
             success: '{hero} spots a little door marked "STAFF ONLY" behind a pipe. The party strolls through, dry and smug.',
-            fail: '{hero} finds a hatch eventually, but it\'s a tight squeeze through a gap full of sharp rusty bolts.' },
+            fail: '{hero} finds a hatch, but bumps the golem\'s foot on the way. CLANK. It kicks in its sleep and catches {hero}.' },
           { label: 'Spark the old gears to life', skill: 'arcana', dc: 10, onlyFor: ['wizard'], damageOnFail: 4,
             success: 'Blue sparks dance from {hero}\'s fingers into the gears. With a clank and a whistle, the gate lifts itself like a polite butler.',
-            fail: 'The spark works... too well. The gate flies open and a wave of sewer water knocks {hero} flat.' },
+            fail: 'The spark works... too well. It zaps the golem too, which jerks awake, flails, and knocks {hero} flat before winding down.' },
           { label: 'Pick the gate\'s padlock', skill: 'sleight', dc: 10, onlyFor: ['rogue'], damageOnFail: 4,
             success: 'Click. {hero} pockets the lockpicks before anyone even saw them come out.',
             fail: 'The rusty lock snaps {hero}\'s pick and pinches a finger. Eventually it gives way, with a sulky clunk.' },
@@ -198,7 +206,7 @@ const ADVENTURES = [
   {
     id: 'carnival', icon: '🎪', title: 'Spores at the Steam Carnival',
     tagline: 'The carnival guests are groaning, shuffling, and sprouting mushrooms.',
-    style: 'Steampunk', monsters: ['shroomDruid', 'zombie', 'deepGnome', 'forestGnome', 'forestGuardian'],
+    style: 'Steampunk', monsters: ['shroomDruid', 'stitched', 'sporeZombies', 'deepGnome', 'forestGnome', 'forestGuardian'],
     setting: BRASSPORT + ' This adventure: the Gearwick Steam Carnival, on the edge of an old forest. An angry Shroom druid has turned the guests into harmless, groaning spore zombies.',
     introLine: 'the carnival lights find you',
     boss: {
@@ -245,16 +253,16 @@ const ADVENTURES = [
         fail: 'A loud squeak of boots, and every zombie turns. "Huuuuug?" The party escapes, but covered in itchy spores (1 damage each).',
       },
       {
-        id: 'wheel', act: 2, title: 'The Runaway Ferris Wheel', type: 'solo',
-        narration: 'Behind the mirrors, the giant Ferris wheel is spinning faster and faster, its gears gummed with mushrooms. At the very top, a family is stuck in a swinging cart, screaming.\n\n{hero}, everyone looks at you. What do we do?',
-        brief: 'A steam-powered Ferris wheel, gummed up with mushrooms, is spinning out of control with a family stuck at the top. The spotlight hero must stop it.',
+        id: 'wheel', act: 2, title: 'The Runaway Ferris Wheel', type: 'solo', monster: 'stitched',
+        narration: 'Behind the mirrors, the giant Ferris wheel is spinning faster and faster. Cranking it is Volt, the carnival strongman: a huge stitched-together Frankenstein creature with glowing lightning jars on his back. Mushrooms sprout from his collar, and his eyes are blank. At the very top, a family is stuck in a swinging cart, screaming.\n\n{hero}, everyone looks at you. What do we do?',
+        brief: 'Volt, the carnival\'s gentle stitched-together strongman (a Frankenstein creature powered by lightning jars), is dazed by spores and cranking the Ferris wheel out of control with a family stuck at the top. The spotlight hero must stop it. Volt is not evil and wakes up confused afterwards.',
         tip: { title: 'Helping = advantage', text: 'This one looks scary. Before rolling, let a friend Help: roll two d20s and keep the better one.' },
         choices: [
           { label: 'Haul on the brake lever', skill: 'athletics', dc: 12, damageOnFail: 4,
-            success: '{hero} throws their whole weight on the brake. The wheel shudders, slows, and stops, and the family climbs down cheering.',
+            success: '{hero} throws their whole weight on the brake. The wheel shudders and stops. Volt blinks, sneezes out a cloud of spores, and says, "Oh. Sorry, everyone." The family climbs down cheering.',
             fail: 'The lever bucks and throws {hero} into a candyfloss stall, but the wheel finally grinds to a halt.' },
           { label: 'Find the jammed gear', skill: 'investigation', dc: 10, damageOnFail: 4,
-            success: '{hero} spots the one gear choked with mushrooms and flicks them out. The wheel glides gently to a stop.',
+            success: '{hero} spots the gear choked with mushrooms and flicks them out. The wheel glides to a stop, and Volt sits down with a puzzled "Huh?"',
             fail: '{hero} reaches into the wrong gear. Pinch! It takes a while, but the right gear gets cleared.' },
           { label: 'Climb the spokes to the stuck cart', skill: 'acrobatics', dc: 12, damageOnFail: 4,
             success: 'Up the spinning spokes {hero} goes, like a squirrel up a tree, and helps the family climb down safely.',
@@ -540,7 +548,7 @@ const ADVENTURES = [
         ],
       },
       {
-        id: 'pete', act: 2, title: 'The Zombie Who Remembered', type: 'solo',
+        id: 'pete', act: 2, title: 'The Zombie Who Remembered', type: 'solo', monster: 'zombie',
         narration: 'A zombie miner shuffles around the corner, pickaxe raised, green light leaking from his eyes. But he\'s wearing a dusty name badge that says PETE.\n\n"Grrrrnnnhh," says Pete, and lurches toward {hero}.',
         brief: 'A zombie miner called Pete blocks the way. He still has a bit of his old self inside. The spotlight hero must deal with him.',
         tip: { title: 'Failing forward', text: 'Zombies aren\'t always enemies. Reach the person inside Pete and the boss fight starts easier. Fail and every zombie in the mine will hear.' },
@@ -606,7 +614,7 @@ const ADVENTURES = [
   {
     id: 'clocktower', icon: '🕰️', title: 'The Midnight Clockwork Dragon',
     tagline: 'A devil made a deal for the city\'s clockwork dragon. At midnight, it wakes.',
-    style: 'Steampunk', monsters: ['erinyes', 'dragon', 'hellPug', 'lizardAssassin', 'zombie'],
+    style: 'Steampunk', monsters: ['erinyes', 'clockDragon', 'mechanus', 'automaton', 'zombie', 'hellPug', 'lizardAssassin'],
     setting: BRASSPORT + ' This adventure: the Inventors\' Gala at the Grand Clocktower. An inventor made a bad deal with Vexira, an Erinyes (a winged devil). At midnight Vexira will own the inventor\'s giant clockwork dragon. Guests are being turned into sleepy clockwork zombies.',
     introLine: 'the chandelier light finds you',
     boss: {
@@ -621,7 +629,7 @@ const ADVENTURES = [
     },
     scenes: [
       {
-        id: 'gala', act: 1, actTitle: 'Act I · The Call', title: 'The Inventors\' Gala', type: 'intro',
+        id: 'gala', act: 1, actTitle: 'Act I · The Call', title: 'The Inventors\' Gala', type: 'intro', monster: 'zombie',
         narration: 'The Grand Clocktower of Brassport glitters with lanterns for the Inventors\' Gala. Under the giant clock face, a silk sheet hides the city\'s greatest invention: a clockwork dragon, built to guard the harbour.\n\nBut the guests are slowing down, stiff and ticking, with keys turning in their backs like clockwork zombies. A cold, sweet laugh drifts from the shadows. Among the gowns and goggles, in their very best clothes, stand {party}.',
         brief: 'Opening scene at a fancy steampunk gala in a giant clocktower. Guests are slowly turning into ticking clockwork zombies, and a hidden clockwork dragon waits under a sheet. Invite each hero to introduce themselves.',
         tip: { title: 'Roleplay & the spotlight', text: 'Everyone\'s dressed up tonight! Tell the table what your hero is wearing to the gala, and say one line in character. Go on, be fancy.' },
@@ -653,9 +661,9 @@ const ADVENTURES = [
         fail: 'The pugs catch up and nip at everyone\'s ankles with hot little teeth (1 damage each) before the party slams a gate on them.',
       },
       {
-        id: 'pendulum', act: 2, title: 'The Pendulum Hall', type: 'solo',
-        narration: 'Near the top, a narrow walkway crosses a hall where giant brass pendulums swing back and forth. WHOOSH... WHOOSH... Each one is as big as a carriage.\n\n{hero}, you\'re first. How do we cross?',
-        brief: 'A walkway crosses a hall of giant swinging pendulums. The spotlight hero decides how to cross.',
+        id: 'pendulum', act: 2, title: 'The Pendulum Hall', type: 'solo', monster: 'mechanus',
+        narration: 'Near the top, a narrow walkway crosses a hall where giant brass pendulums swing back and forth. WHOOSH... WHOOSH... Floating in the middle is Mechanus, the clock\'s brain: a glowing brass sphere wrapped in spinning rings, like a living map of the stars. It hums, and the pendulums swing to its rhythm.\n\n{hero}, you\'re first. How do we cross?',
+        brief: 'A walkway crosses a hall of giant swinging pendulums, kept in time by Mechanus, a floating orrery construct of spinning brass rings. The spotlight hero decides how to cross.',
         tip: { title: 'Helping = advantage', text: 'Timing is tricky. A friend can Help by counting the swings out loud, and that gives you advantage.' },
         choices: [
           { label: 'Time your dash between swings', skill: 'acrobatics', dc: 12, damageOnFail: 4,
@@ -693,9 +701,9 @@ const ADVENTURES = [
         ],
       },
       {
-        id: 'gears', act: 2, title: 'The Grinding Gears', type: 'solo',
-        narration: 'The last room before the top has no floor, just huge turning gears with teeth as big as doors, grinding and clanking. One wrong step and... well.\n\n{hero} is in front.',
-        brief: 'A room where the floor is giant grinding gears. The spotlight hero leads the way.',
+        id: 'gears', act: 2, title: 'The Grinding Gears', type: 'solo', monster: 'automaton',
+        narration: 'The last room before the top has no floor, just huge turning gears with teeth as big as doors. At the controls stands Lady Sprocket\'s Automaton, a graceful brass figure with gears for a heart. The devil\'s contract has bewitched it, and with every click of its fingers the gears spin faster.\n\n{hero} is in front.',
+        brief: 'A room where the floor is giant grinding gears, worked by a graceful brass Automaton bewitched by the devil\'s contract. The spotlight hero leads the way across. The Automaton is not evil; it snaps out of it when the party gets past.',
         tip: { title: 'Hit points', text: 'Last trap before the boss! If anyone is low on HP, heal them now. Powers like Cure Wounds and Second Wind are once per adventure, so this is a good time.' },
         choices: [
           { label: 'Watch the teeth for a safe path', skill: 'perception', dc: 12, damageOnFail: 6,
@@ -710,7 +718,7 @@ const ADVENTURES = [
         ],
       },
       {
-        id: 'clockface', act: 3, actTitle: 'Act III · The Climax', title: 'Midnight at the Clock Face', type: 'boss',
+        id: 'clockface', act: 3, actTitle: 'Act III · The Climax', title: 'Midnight at the Clock Face', type: 'boss', monster: 'clockDragon',
         narration: 'Behind the great glass clock face, the clockwork dragon stirs. Steam pours from its jaws and its eyes glow red. Above it, on wings of black feathers, hovers Vexira the Erinyes, holding a golden contract that crackles with fire.\n\n"At the stroke of midnight, this dragon is MINE," she purrs, "and so is your city." The clock begins to strike. BONG. Roll for initiative!',
         brief: 'Final showdown with Vexira, an Erinyes (winged devil), and the giant clockwork dragon she is about to take over at midnight. Vexira must obey the exact words of her contract, so loopholes and clever tricks hurt her.',
         tip: { title: 'Initiative & turns', text: 'The biggest fight yet! Take turns in order. The party needs successes before Vexira lands 3 hits. If you learned about the contract, clever moves are easier.' },

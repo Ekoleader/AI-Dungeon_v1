@@ -7,15 +7,15 @@ A beginner Dungeons & Dragons adventure for **3 or 4 players sharing one iPad** 
 | Adventure | Style | Boss | Monsters you'll meet |
 |---|---|---|---|
 | 🏮 The Stolen Everlight | Classic fantasy | Grubnak the goblin chief | Goblins, goblin wolves |
-| 🐀 The Ratmancer's Engine | Steampunk | The Ratmancer | Housecatfolk bandit, Goblin bombarder, Wyrmling, zombie rats |
-| 🎪 Spores at the Steam Carnival | Steampunk | Mossmaw the Shroom druid | Deep gnome, Forest gnome, Forest guardian, spore zombies |
+| 🐀 The Ratmancer's Engine | Steampunk | The Ratmancer | Clockwork golem, Housecatfolk bandit, Goblin bombarder, Wyrmling, zombie rats |
+| 🎪 Spores at the Steam Carnival | Steampunk | Mossmaw the Shroom druid | Frankenstein creature, Deep gnome, Forest gnome, Forest guardian, spore zombies |
 | 🥚 The Dragon's Egg Heist | Steampunk | Captain Shellbeard, Turtlefolk pirate | A brass dragon, Siren, Tiefling outlander |
 | ⛏️ The Zombie Miners of Copperdeep | Steampunk | Grizzletooth the Goblin shaman | Deep gnome, Beer golem, zombie miners |
-| 🕰️ The Midnight Clockwork Dragon | Steampunk | Vexira the Erinyes | Hell pugs, Lizardfolk assassin, a clockwork dragon, clockwork zombies |
+| 🕰️ The Midnight Clockwork Dragon | Steampunk | Vexira the Erinyes | Clockwork dragon, Mechanus, Automaton, steampunk zombies, Hell pugs, Lizardfolk assassin |
 
 The five steampunk adventures all happen in Brassport, a city of brass towers, airships and steam. Every adventure follows the same shape, so the rules stay familiar while the story changes. Each one has a scene where learning the boss's **weakness** makes some boss moves easier, and a scene where winning someone over gives a **secret way in** (failing raises the alarm and makes the boss harder).
 
-Monsters show emoji icons for now. To swap in a photo of a mini-figure later, add an `art: 'img/monsters/name.jpg'` line to that monster in `js/adventures.js`.
+Six monsters have artwork (in `img/monsters/`): the Clockwork golem, Frankenstein creature, Automaton, Mechanus, Clockwork dragon and Steampunk zombie. Their pictures show on the adventure cards and at the top of the scene where they appear. The others show emoji icons for now. To add a picture, put a square image in `img/monsters/`, then add an `art: 'img/monsters/name.jpg'` line to that monster in `js/adventures.js` (and `monster: 'id'` to a scene to show it there).
 
 ## How a game plays (The Stolen Everlight)
 
