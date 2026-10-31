@@ -405,7 +405,7 @@ function monsterChip(id) {
   const m = MONSTERS[id];
   if (!m) return '';
   const pic = m.art ? `<img src="${esc(m.art)}" alt="">` : m.icon;
-  return `<span class="monster-chip" title="${esc(m.name)}"><span class="monster-icon">${pic}</span>${esc(m.name)}</span>`;
+  return `<span class="monster-chip ${m.art ? 'has-art' : ''}" title="${esc(m.name)}"><span class="monster-icon">${pic}</span>${esc(m.name)}</span>`;
 }
 
 function renderPick() {
@@ -482,10 +482,17 @@ function replayButton(i) {
   return voice.supported ? `<button class="replay" data-action="speak" data-index="${i}" aria-label="Read this aloud">🔊</button>` : '';
 }
 
+// A scene that names a monster with a picture shows it under the scene title.
+function monsterPortrait(id) {
+  const m = MONSTERS[id];
+  if (!m || !m.art) return '';
+  return `<figure class="monster-portrait"><img src="${esc(m.art)}" alt="${esc(m.name)}"><figcaption>${esc(m.name)}</figcaption></figure>`;
+}
+
 function logEntry(e, i) {
   switch (e.kind) {
     case 'scene':
-      return `<div class="entry scene-head">${e.act ? `<div class="act">${esc(e.act)}</div>` : ''}<div class="scene-title">${esc(e.title)}</div></div>`;
+      return `<div class="entry scene-head">${e.act ? `<div class="act">${esc(e.act)}</div>` : ''}<div class="scene-title">${esc(e.title)}</div>${monsterPortrait(e.monster)}</div>`;
     case 'dm':
       return `<div class="entry dm ${e.pending ? 'pending' : ''}">${e.pending ? '<span class="quill">The Dungeon Master is speaking<span class="dots">...</span></span>' : paragraphs(e.text)}${e.ai ? '<span class="ai-mark" title="Narrated by Claude">🔮</span>' : ''}${e.pending ? '' : replayButton(i)}</div>`;
     case 'player':
@@ -947,7 +954,7 @@ async function enterScene() {
       addLog({ kind: 'system', text: `${h.name} catches a breath and staggers back up with 1 HP.` });
     }
   });
-  addLog({ kind: 'scene', act: s.actTitle || '', title: s.title });
+  addLog({ kind: 'scene', act: s.actTitle || '', title: s.title, monster: s.monster || null });
   const hero = s.type === 'solo' ? nextSpotlight() : null;
   game.phase = 'narrating';
   save();
