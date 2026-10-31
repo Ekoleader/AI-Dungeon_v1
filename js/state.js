@@ -42,7 +42,7 @@ function clearGame() {
 }
 
 function loadSettings() {
-  const defaults = { apiKey: '', useAI: false, textSize: 'large', voiceOn: true, voiceName: '', voiceRate: 0.95 };
+  const defaults = { apiKey: '', useAI: false, textSize: 'large', voiceOn: true, showPip: true, voiceName: '', voiceRate: 0.95 };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     return raw ? { ...defaults, ...JSON.parse(raw) } : defaults;

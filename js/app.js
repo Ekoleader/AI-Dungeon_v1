@@ -9,6 +9,8 @@
 let game = loadGame() || newState();
 let showTitle = true;   // always open on the title screen; "Continue" resumes
 let busy = false;       // true while dice roll or the DM is speaking
+let logSeen = -1;       // how many story entries were on screen last time (for scrolling)
+let logPin = -1;        // story entry kept at the top of the story box until a player scrolls
 
 const app = document.getElementById('app');
 
@@ -303,17 +305,22 @@ function logEntry(e, i) {
 function renderGame() {
   const s = scene();
   const tip = s.tip;
+  const showPip = loadSettings().showPip;
+  const oldLog = document.getElementById('log');
+  const keepScroll = oldLog ? oldLog.scrollTop : 0;
+  if (!oldLog) logSeen = -1; // coming back from the menu: find the latest narration again
   app.innerHTML = `
-    <section class="game">
+    <section class="game ${showPip ? '' : 'no-pip'}">
       <aside class="party-panel">${game.party.map(heroCard).join('')}
         ${game.inspiration ? `<div class="inspiration-pill">✨ Party Inspiration: ${game.inspiration}</div>` : ''}
       </aside>
       <section class="stage parchment">
-        <div class="scene-banner"><span class="act">${esc(currentActTitle())}</span><span class="scene-name">${esc(s.title)}</span></div>
+        <div class="scene-banner"><div class="scene-label"><span class="act">${esc(currentActTitle())}</span><span class="scene-name">${esc(s.title)}</span></div>
+          <button class="pip-toggle" data-action="toggle-pip" aria-pressed="${showPip}">${showPip ? '🦉 Hide Pip' : '🦉 Show Pip'}</button></div>
         <div class="log" id="log">${game.log.map(logEntry).join('')}</div>
         <div class="actions" id="actions">${renderActions()}</div>
       </section>
-      <aside class="pip-panel">
+      ${showPip ? `<aside class="pip-panel">
         <div class="pip-card">
           <div class="pip-head"><span class="owl big">🦉</span><div><b>Pip's tip</b><div class="pip-topic">${esc(tip.title)}</div></div></div>
           <p>${esc(tip.text)}</p>
@@ -325,10 +332,34 @@ function renderGame() {
           <button class="chip" data-action="pip-quick" data-q="Can you give us a strategy hint for this scene?">Strategy hint</button>
           <button class="chip strong" data-action="pip-open">✍️ Ask anything</button>
         </div>
-      </aside>
+      </aside>` : ''}
     </section>`;
+  scrollLog(keepScroll);
+}
+
+// When new story appears, show the START of it at the top of the story box so
+// the table can read along while it's spoken. Otherwise stay where we were.
+function scrollLog(keepScroll) {
   const log = document.getElementById('log');
-  log.scrollTop = log.scrollHeight;
+  const entries = log.children;
+  const count = game.log.length;
+  let anchor = -1;
+  if (logSeen < 0 || count < logSeen) {
+    // Just opened the game (or restarted): jump to the latest narration.
+    for (let i = count - 1; i >= 0; i--) if (game.log[i].kind === 'dm') { anchor = i; break; }
+    // Include the scene title if it sits right above that narration.
+    if (anchor > 0 && game.log[anchor - 1].kind === 'scene') anchor--;
+  } else if (count > logSeen) {
+    anchor = logSeen; // the first new entry
+  }
+  logSeen = count;
+  if (anchor >= 0) logPin = anchor;
+  // Keep the new story pinned to the top while the buttons below change size,
+  // until a player touches the story box to scroll it themselves.
+  if (logPin >= 0 && entries[logPin]) log.scrollTop = Math.max(0, entries[logPin].offsetTop - 8);
+  else log.scrollTop = keepScroll;
+  const unpin = () => { logPin = -1; };
+  ['touchstart', 'wheel', 'mousedown'].forEach(ev => log.addEventListener(ev, unpin, { passive: true }));
 }
 
 function renderActions() {
@@ -1039,6 +1070,11 @@ document.addEventListener('click', event => {
     case 'speak': {
       const entry = game.log[Number(el.dataset.index)];
       if (entry) speak(entry.text, entry.kind === 'pip' ? 'pip' : 'dm');
+      break;
+    }
+    case 'toggle-pip': {
+      const s = loadSettings(); s.showPip = !s.showPip; saveSettings(s);
+      render();
       break;
     }
     case 'toggle-voice': {
