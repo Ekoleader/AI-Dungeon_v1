@@ -15,7 +15,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <!-- The ?v= numbers make the iPad load fresh files after each update.
+       Change APP_VERSION here and in js/app.js when you publish a change. -->
+  <link rel="stylesheet" href="css/style.css?v=2026-10-31b">
 </head>
 <body>
   <header class="topbar">
@@ -40,14 +42,14 @@
   <div id="toasts" aria-live="polite"></div>
 
   <!-- Order matters: data first, then the pieces that use it, then the app. -->
-  <script src="js/data.js"></script>
-  <script src="js/adventures.js"></script>
-  <script src="js/state.js"></script>
-  <script src="js/roster.js"></script>
-  <script src="js/portrait.js"></script>
-  <script src="js/dice.js"></script>
-  <script src="js/narrator.js"></script>
-  <script src="js/voice.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/data.js?v=2026-10-31b"></script>
+  <script src="js/adventures.js?v=2026-10-31b"></script>
+  <script src="js/state.js?v=2026-10-31b"></script>
+  <script src="js/roster.js?v=2026-10-31b"></script>
+  <script src="js/portrait.js?v=2026-10-31b"></script>
+  <script src="js/dice.js?v=2026-10-31b"></script>
+  <script src="js/narrator.js?v=2026-10-31b"></script>
+  <script src="js/voice.js?v=2026-10-31b"></script>
+  <script src="js/app.js?v=2026-10-31b"></script>
 </body>
 </html>
