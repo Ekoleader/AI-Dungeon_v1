@@ -15,7 +15,8 @@ Rules:
 - Speak to the heroes in second person and use their names. Use each hero's stated pronouns; if unsure, use their name.
 - You are given the KEY FACTS of this moment. Keep every fact, including who succeeded or failed. Never change a roll's result.
 - Never decide what a hero says, thinks or feels. Describe the world and the consequences.
-- Stay inside this scene. Don't invent new quests or skip ahead in the story.`;
+- Stay inside this scene. Don't invent new quests or skip ahead in the story.
+- Heroes may have a backstory and past adventures. Now and then, weave in one small detail from them (a home, a fear, a goal, an old foe) to make the moment personal. Never let it change the key facts.`;
 
 const PIP_SYSTEM = `You are Pip, a cheeky but kind owl who mentors brand-new D&D players during their very first adventure.
 The players are total beginners sitting around one iPad.
@@ -61,10 +62,15 @@ async function askClaude(system, userText) {
 }
 
 function partySummary(party) {
-  return party.map(h =>
-    `- ${h.name} (${h.pronouns}), ${RACES[h.race].name} ${CLASSES[h.cls].name}, played by ${h.player || 'a player'}. ` +
-    `HP ${h.hp}/${h.maxHp}${h.down ? ', knocked out' : ''}.${h.look ? ' Looks: ' + h.look : ''}`
-  ).join('\n');
+  return party.map(h => {
+    const lines = [
+      `- ${h.name} (${h.pronouns}), level ${h.level || 1} ${RACES[h.race].name} ${CLASSES[h.cls].name}, played by ${h.player || 'a player'}. ` +
+      `HP ${h.hp}/${h.maxHp}${h.down ? ', knocked out' : ''}.${h.look ? ' Looks: ' + h.look : ''}`,
+    ];
+    if (h.backstory) lines.push(`  Backstory: ${h.backstory.slice(0, 500)}`);
+    if (h.pastDeeds && h.pastDeeds.length) lines.push(`  Past adventures: ${h.pastDeeds.join('; ')}`);
+    return lines.join('\n');
+  }).join('\n');
 }
 
 function recentStory(log) {

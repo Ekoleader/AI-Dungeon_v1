@@ -11,6 +11,8 @@ let showTitle = true;   // always open on the title screen; "Continue" resumes
 let busy = false;       // true while dice roll or the DM is speaking
 let logSeen = -1;       // how many story entries were on screen last time (for scrolling)
 let logPin = -1;        // story entry kept at the top of the story box until a player scrolls
+let view = null;        // 'heroes' while the Hall of Heroes is open
+let editDraft = null;   // a roster hero being edited in the hero editor
 
 const app = document.getElementById('app');
 
@@ -84,7 +86,8 @@ function activeHeroId() {
 
 function render() {
   applyTextSize();
-  if (showTitle) renderTitle();
+  if (view === 'heroes') renderHall();
+  else if (showTitle) renderTitle();
   else if (game.screen === 'setup') renderSetup();
   else if (game.screen === 'game') renderGame();
   else renderTitle();
@@ -106,8 +109,23 @@ function applyTextSize() {
   document.documentElement.dataset.textSize = size;
 }
 
+function adventureInProgress() {
+  return (game.screen === 'game' && game.phase !== 'end') || game.screen === 'setup';
+}
+
+function timeAgo(when) {
+  const mins = Math.round((Date.now() - when) / 60000);
+  if (mins < 2) return 'just now';
+  if (mins < 60) return `${mins} minutes ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  return new Date(when).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
 function renderTitle() {
   const canContinue = game.screen === 'setup' || game.screen === 'game';
+  const shelf = loadShelf();
+  const heroes = loadRoster().length;
   app.innerHTML = `
     <section class="title-screen">
       <div class="title-card parchment">
@@ -117,10 +135,65 @@ function renderTitle() {
         <div class="title-buttons">
           ${canContinue ? `<button class="big primary" data-action="continue">▶ Continue the adventure</button>` : ''}
           <button class="big ${canContinue ? '' : 'primary'}" data-action="new-party">✨ Gather a new party</button>
+          <button class="big" data-action="hall">🏰 Hall of Heroes${heroes ? ` <small>(${heroes})</small>` : ''}</button>
         </div>
+        ${shelf.length ? `<div class="shelf">
+          <div class="pick-label">⏸ Paused adventures</div>
+          ${shelf.map(p => `<div class="shelf-item">
+            <div class="shelf-text"><b>${esc(p.adventure)}</b>${p.scene ? ` · ${esc(p.scene)}` : ''}<small>${esc(listNames(p.party || []))} · paused ${esc(timeAgo(p.savedAt))}</small></div>
+            <button class="big primary small-big" data-action="resume" data-id="${esc(p.id)}">▶ Resume</button>
+            <button class="icon-btn" data-action="drop-paused" data-id="${esc(p.id)}" aria-label="Delete this paused adventure">🗑️</button>
+          </div>`).join('')}
+        </div>` : ''}
         <p class="title-note">${aiEnabled() ? '🔮 AI Dungeon Master is on.' : '📜 Playing with the written story. Add an API key in ⚙️ Settings for an AI Dungeon Master.'}</p>
       </div>
     </section>`;
+}
+
+// ---- Pause and resume -------------------------------------------------------------
+
+function confirmPause() {
+  if (busy) { toast('Let the Dungeon Master finish speaking first.'); return; }
+  openModal(`
+    <h3>⏸ Pause the adventure?</h3>
+    <p>Everything is saved on this iPad: the story so far, hit points, whose turn it is. Pick it up any time from the main menu with <b>▶ Resume</b>.</p>
+    <div class="button-row">
+      <button class="big primary" data-action="pause-now">⏸ Pause and go to the menu</button>
+      <button class="big" data-action="close-modal">Keep playing</button>
+    </div>`);
+}
+
+// Put the current adventure on the shelf. Returns false if nothing was saved.
+function shelveCurrent() {
+  if (game.screen !== 'game' || game.phase === 'end') return false;
+  if (!pauseAdventure(game)) { toast('The iPad\'s storage is full, so the adventure couldn\'t be paused. Export a backup in ⚙️ Settings.'); return false; }
+  return true;
+}
+
+function pauseNow() {
+  stopSpeaking();
+  if (!shelveCurrent()) return;
+  game = newState();
+  save();
+  closeModal();
+  showTitle = true;
+  toast('⏸ Adventure paused. Resume it from the menu.');
+  render();
+}
+
+function resumePaused(id) {
+  // Anything in progress goes on the shelf first, so nothing is ever lost.
+  if (game.screen === 'game' && game.phase !== 'end') shelveCurrent();
+  const state = takeFromShelf(id);
+  if (!state) { render(); return; }
+  game = upgradeState(state);
+  save();
+  showTitle = false;
+  view = null;
+  logSeen = -1;
+  keepScreenAwake();
+  if (game.screen === 'game' && (game.phase === 'narrating' || !game.phase)) { game.log = game.log.filter(e => !e.pending); enterScene(); return; }
+  render();
 }
 
 // ---- Party creation --------------------------------------------------------
@@ -133,10 +206,14 @@ function defaultSeat(i) {
     sigil: SIGILS[[0, 2, 4, 6][i]],
     color: COLORS[i],
     look: '',
+    backstory: '',
+    portrait: {},
+    rosterId: null,
   };
 }
 
 function startSetup() {
+  if (shelveCurrent()) toast('⏸ Your unfinished adventure was paused. Resume it from the menu.');
   game = newState();
   game.screen = 'setup';
   game.setup = { size: 3, seats: [0, 1, 2, 3].map(defaultSeat) };
@@ -147,7 +224,8 @@ function startSetup() {
 }
 
 function seatPreviewStats(seat) {
-  const hero = buildHero({ ...seat, name: seat.name || '?', player: seat.player }, 0);
+  const record = seat.rosterId ? rosterHero(seat.rosterId) : null;
+  const hero = buildHero({ ...seat, name: seat.name || '?', player: seat.player, level: record ? record.level : 1 }, 0);
   const chips = Object.keys(ABILITIES).map(k =>
     `<span class="stat" title="${ABILITIES[k].name}"><b>${ABILITIES[k].short}</b>${hero.scores[k]}<i>${signed(mod(hero.scores[k]))}</i></span>`
   ).join('');
@@ -160,17 +238,41 @@ function segmented(seatIndex, field, options, current) {
   ).join('') + `</div>`;
 }
 
+// Portrait picks (skin, hair colour, hair style). `target` is "seat:0".."seat:3" or "edit".
+function portraitPicker(target, draft) {
+  const p = draft.portrait || {};
+  const f = portraitFeatures(draft);
+  return `
+    <div class="portrait-picker">
+      <div class="pp-row"><span class="pp-label">Skin</span>${SKIN_TONES.map(c => `<button class="swatch small ${f.skin === c ? 'on' : ''}" style="background:${c}" data-action="portrait-pick" data-target="${target}" data-field="skin" data-value="${c}" aria-label="Skin tone"></button>`).join('')}</div>
+      <div class="pp-row"><span class="pp-label">Hair</span>${Object.entries(HAIR_COLOURS).map(([k, c]) => `<button class="swatch small ${f.hair === k ? 'on' : ''}" style="background:${c}" data-action="portrait-pick" data-target="${target}" data-field="hair" data-value="${k}" aria-label="${k} hair"></button>`).join('')}</div>
+      <div class="pp-row"><span class="pp-label">Style</span>${Object.entries(HAIR_STYLES).map(([k, name]) => `<button class="seg mini ${f.style === k ? 'on' : ''}" data-action="portrait-pick" data-target="${target}" data-field="style" data-value="${k}">${name}</button>`).join('')}</div>
+      ${p.skin || p.hair || p.style ? `<button class="link-btn" data-action="portrait-pick" data-target="${target}" data-field="reset">↺ Match the description again</button>` : ''}
+    </div>`;
+}
+
+function backstoryField(attrs, value, name) {
+  return `
+    <label>Backstory <span class="optional">(optional, the AI Dungeon Master uses it)</span>
+      <textarea ${attrs} data-field="backstory" rows="4" placeholder="Where is ${esc(name || 'your hero')} from? What do they want more than anything? What are they afraid of?">${esc(value)}</textarea>
+    </label>`;
+}
+
 function renderSeat(seat, i) {
   const cls = CLASSES[seat.cls];
+  const record = seat.rosterId ? rosterHero(seat.rosterId) : null;
+  const level = record ? record.level : 1;
   return `
   <div class="seat parchment" style="--hero:${seat.color}">
     <div class="seat-head">
-      <span class="sigil-badge">${seat.sigil}</span>
-      <div>
-        <div class="seat-label">Player ${i + 1}</div>
+      <span class="seat-portrait" id="seat-portrait-${i}">${portraitSVG(seat, 84)}</span>
+      <div class="seat-head-text">
+        <div class="seat-label">Player ${i + 1}${record ? ` · returning hero, level ${level}` : ''}</div>
         <div class="seat-hero-name" id="seat-name-${i}">${esc(seat.name) || 'Unnamed hero'}</div>
+        ${record ? `<button class="link-btn" data-action="seat-clear" data-seat="${i}">✕ Make a new hero instead</button>` : ''}
       </div>
     </div>
+    ${record ? '' : savedHeroChips(i)}
     <div class="field-row">
       <label>Player's real name<input type="text" data-seat="${i}" data-field="player" value="${esc(seat.player)}" placeholder="e.g. Sam" autocomplete="off"></label>
       <label>Pronouns<input type="text" data-seat="${i}" data-field="pronouns" value="${esc(seat.pronouns)}" placeholder="they/them" autocomplete="off"></label>
@@ -178,23 +280,37 @@ function renderSeat(seat, i) {
     <label>Hero's name
       <span class="with-button">
         <input type="text" data-seat="${i}" data-field="name" value="${esc(seat.name)}" placeholder="Your hero's name" autocomplete="off">
-        <button class="icon-btn" data-action="random-name" data-seat="${i}" aria-label="Suggest a name">🎲</button>
+        ${record ? '' : `<button class="icon-btn" data-action="random-name" data-seat="${i}" aria-label="Suggest a name">🎲</button>`}
       </span>
     </label>
+    ${record ? `<p class="blurb"><b>${RACES[seat.race].name} ${cls.name}, level ${level}.</b> ${record.adventures || 0} ${record.adventures === 1 ? 'adventure' : 'adventures'} so far, ${record.xp || 0} XP. Race and class stay the same for returning heroes.</p>` : `
     <div class="pick-label">Race</div>
     ${segmented(i, 'race', RACES, seat.race)}
     <p class="blurb">${RACES[seat.race].blurb}</p>
     <div class="pick-label">Class</div>
     ${segmented(i, 'cls', CLASSES, seat.cls)}
-    <p class="blurb"><b>${cls.role}.</b> ${cls.blurb} Trained in ${cls.skills.map(s => SKILLS[s].name).join(', ')}.</p>
+    <p class="blurb"><b>${cls.role}.</b> ${cls.blurb} Trained in ${cls.skills.map(s => SKILLS[s].name).join(', ')}.</p>`}
     <div class="pick-label">Sigil &amp; colour</div>
     <div class="sigils">${SIGILS.map(s => `<button class="sigil ${s === seat.sigil ? 'on' : ''}" data-action="seat-pick" data-seat="${i}" data-field="sigil" data-value="${s}">${s}</button>`).join('')}</div>
     <div class="swatches">${COLORS.map(c => `<button class="swatch ${c === seat.color ? 'on' : ''}" style="background:${c}" data-action="seat-pick" data-seat="${i}" data-field="color" data-value="${c}" aria-label="Colour ${c}"></button>`).join('')}</div>
-    <label>What do they look like? <span class="optional">(optional)</span>
+    <label>What do they look like? <span class="optional">(the portrait listens: try a beard, freckles, a scar, glasses or an eyepatch)</span>
       <textarea data-seat="${i}" data-field="look" rows="2" placeholder="e.g. Wild red hair, a patched green cloak, and a nervous grin">${esc(seat.look)}</textarea>
     </label>
+    <div class="pick-label">Portrait</div>
+    ${portraitPicker('seat:' + i, seat)}
+    ${backstoryField(`data-seat="${i}"`, seat.backstory, seat.name)}
+    <div class="button-row"><button class="chip" data-action="random-backstory" data-seat="${i}">🎲 Give me a backstory idea</button></div>
     ${seatPreviewStats(seat)}
   </div>`;
+}
+
+// Saved heroes who aren't already sitting at the table.
+function savedHeroChips(i) {
+  const seated = game.setup.seats.slice(0, game.setup.size).map(s => s.rosterId).filter(Boolean);
+  const free = loadRoster().filter(r => !seated.includes(r.id));
+  if (!free.length) return '';
+  return `<div class="saved-heroes"><span class="pp-label">Bring back a saved hero:</span>
+    ${free.map(r => `<button class="saved-chip" data-action="seat-load" data-seat="${i}" data-id="${esc(r.id)}" style="--hero:${r.color}">${portraitSVG(r, 30)} ${esc(r.name)} <small>Lv ${r.level || 1}</small></button>`).join('')}</div>`;
 }
 
 function partyBalanceTip(seats) {
@@ -230,6 +346,9 @@ function renderSetup() {
     </section>`;
 }
 
+// Every hero at the table gets a place in the roster (new ones are added,
+// returning ones are updated), then the party is built from those records
+// so their levels and abilities come along.
 function beginAdventure() {
   const { size, seats } = game.setup;
   const active = seats.slice(0, size);
@@ -239,7 +358,14 @@ function beginAdventure() {
     document.querySelector(`input[data-seat="${missing}"][data-field="name"]`)?.focus();
     return;
   }
-  game.party = active.map((s, i) => buildHero({ ...s, player: s.player || `Player ${i + 1}` }, i));
+  const records = active.map((s, i) => {
+    const draft = { ...s, player: s.player.trim() || `Player ${i + 1}`, name: s.name.trim(), look: s.look.trim(), backstory: (s.backstory || '').trim() };
+    const existing = s.rosterId ? rosterHero(s.rosterId) : null;
+    if (!existing) return storeRosterHero(newRosterHero(draft));
+    HERO_FIELDS.forEach(f => { existing[f] = draft[f]; });
+    return storeRosterHero(existing);
+  });
+  game.party = records.map((r, i) => buildHero({ ...r, rosterId: r.id }, i));
   game.setup = null;
   game.screen = 'game';
   game.sceneIndex = 0;
@@ -249,28 +375,38 @@ function beginAdventure() {
   enterScene();
 }
 
+// Fresh copies of the same heroes, with any levels they've gained since.
+function rebuildPartyFromRoster() {
+  game.party = game.party.map((h, i) => {
+    const record = h.rosterId ? rosterHero(h.rosterId) : null;
+    return buildHero(record ? { ...record, rosterId: record.id } : h, i);
+  });
+}
+
 // ---- The game screen ---------------------------------------------------------
 
 function heroCard(hero) {
   const active = activeHeroId() === hero.id;
   const pct = Math.max(0, Math.round((hero.hp / hero.maxHp) * 100));
-  const power = CLASSES[hero.cls].power;
-  const powerBtn = power && !hero.powerUsed
-    ? `<button class="power" data-action="power" data-hero="${hero.id}">✨ ${power.name}</button>`
-    : power ? `<span class="power used">${power.name} used</span>` : '';
+  const powers = (hero.powers || []).map(p => {
+    const power = POWERS[p.id];
+    if (p.used) return `<span class="power used">${power.name} used</span>`;
+    if (power.kind === 'heal') return `<button class="power" data-action="power" data-hero="${hero.id}" data-power="${p.id}">${power.icon} ${power.name}</button>`;
+    return `<span class="power ready" title="${esc(power.blurb)}">${power.icon} ${power.name} ready</span>`;
+  }).join('');
   return `
   <div class="hero-card ${active ? 'active' : ''} ${hero.down ? 'down' : ''}" style="--hero:${hero.color}">
     ${active ? '<div class="spot-label">🌟 Your turn</div>' : ''}
     <div class="hero-top">
-      <span class="sigil-badge">${hero.sigil}</span>
+      <button class="portrait-btn" data-action="hero-sheet" data-hero="${hero.id}" aria-label="Open ${esc(hero.name)}'s character sheet">${portraitSVG(hero, 52)}<span class="lvl">${hero.level || 1}</span></button>
       <div class="hero-id">
-        <div class="hero-name">${esc(hero.name)}</div>
-        <div class="hero-sub">${RACES[hero.race].name} ${CLASSES[hero.cls].name} · ${esc(hero.player)}</div>
+        <div class="hero-name">${hero.sigil} ${esc(hero.name)}</div>
+        <div class="hero-sub">Lv ${hero.level || 1} ${RACES[hero.race].name} ${CLASSES[hero.cls].name} · ${esc(hero.player)}</div>
       </div>
     </div>
     <div class="hp-bar" aria-label="Hit points"><div style="width:${pct}%"></div><span>${hero.down ? 'Knocked out' : `HP ${hero.hp} / ${hero.maxHp}`}</span></div>
     <div class="mini-stats">${Object.keys(ABILITIES).map(k => `<span><b>${ABILITIES[k].short}</b>${signed(mod(hero.scores[k]))}</span>`).join('')}</div>
-    ${powerBtn}
+    ${powers ? `<div class="powers">${powers}</div>` : ''}
   </div>`;
 }
 
@@ -316,7 +452,7 @@ function renderGame() {
       </aside>
       <section class="stage parchment">
         <div class="scene-banner"><div class="scene-label"><span class="act">${esc(currentActTitle())}</span><span class="scene-name">${esc(s.title)}</span></div>
-          <button class="pip-toggle" data-action="toggle-pip" aria-pressed="${showPip}">${showPip ? '🦉 Hide Pip' : '🦉 Show Pip'}</button></div>
+          <div class="banner-buttons"><button class="pip-toggle" data-action="pause">⏸ Pause</button><button class="pip-toggle" data-action="toggle-pip" aria-pressed="${showPip}">${showPip ? '🦉 Hide Pip' : '🦉 Show Pip'}</button></div></div>
         <div class="log" id="log">${game.log.map(logEntry).join('')}</div>
         <div class="actions" id="actions">${renderActions()}</div>
       </section>
@@ -419,22 +555,32 @@ function renderCheck() {
         `<button class="helper ${p.helperId === h.id ? 'on' : ''}" data-action="help" data-hero="${h.id}" style="--hero:${h.color}" ${busy ? 'disabled' : ''}>${h.sigil} ${esc(h.name)} helps</button>`).join('')
     : '';
   const helpedInBattle = p.source === 'battle' && p.battleAdv;
-  const adv = p.helperId || p.useInspiration || helpedInBattle;
+  const adv = p.helperId || p.useInspiration || helpedInBattle || p.boost;
+  // Once-per-adventure "advantage" powers: the hero's own, or a friend's that can target anyone.
+  const boosts = game.party.flatMap(owner => (owner.powers || [])
+    .filter(pw => !pw.used && POWERS[pw.id].kind === 'advantage' && !owner.down && (owner.id === hero.id || POWERS[pw.id].target === 'any'))
+    .map(pw => {
+      const power = POWERS[pw.id];
+      const key = owner.id + ':' + pw.id;
+      return `<button class="helper insp ${p.boost === key ? 'on' : ''}" data-action="boost" data-key="${key}" style="--hero:${owner.color}" ${busy ? 'disabled' : ''}>${power.icon} ${owner.id === hero.id ? '' : esc(owner.name) + ': '}${power.name}</button>`;
+    })).join('');
   return `
     <div class="check">
       <div class="check-title">${hero.sigil} <b>${esc(hero.name)}</b>: ${esc(p.label)}</div>
       <div class="maths">
         <span class="die-word">d20</span>
         <span>${signed(b.abilityMod)} <small>${ABILITIES[b.ability].name}</small></span>
-        ${b.prof ? `<span>+2 <small>trained in ${SKILLS[p.skill].name}</small></span>` : ''}
+        ${b.prof ? `<span>+${b.prof} <small>trained in ${SKILLS[p.skill].name}</small></span>` : ''}
+        ${b.extra ? `<span>+${b.extra} <small>level-up bonus</small></span>` : ''}
         <span class="vs">need <b>${p.dc}</b>+</span>
       </div>
       <details class="refresher"><summary>Need a refresher?</summary>
-        <p>Roll the twenty-sided die (d20) and add ${esc(hero.name)}'s ${SKILLS[p.skill].name} bonus of <b>${signed(b.total)}</b>. That's the ${ABILITIES[b.ability].name} modifier${b.prof ? ' plus 2 for being trained in this skill' : ''}. Reach the Difficulty Class (DC) of ${p.dc} or more to succeed. A natural 20 always succeeds and a natural 1 always fails (a simplified house rule).</p>
+        <p>Roll the twenty-sided die (d20) and add ${esc(hero.name)}'s ${SKILLS[p.skill].name} bonus of <b>${signed(b.total)}</b>. That's the ${ABILITIES[b.ability].name} modifier${b.prof ? ` plus ${b.prof} for being trained in this skill` : ''}${b.extra ? ` plus ${b.extra} from leveling up` : ''}. Reach the Difficulty Class (DC) of ${p.dc} or more to succeed. A natural ${critMin(hero) < 20 ? critMin(hero) + ' or 20' : '20'} always succeeds and a natural 1 always fails (a simplified house rule).</p>
       </details>
       ${helpers ? `<div class="helper-row"><span>Anyone helping? <small>(gives advantage: roll 2 dice, keep the best)</small></span><div>${helpers}</div></div>` : ''}
       ${helpedInBattle ? `<div class="adv-note">🤝 A friend set this up: <b>advantage!</b></div>` : ''}
       ${game.inspiration > 0 ? `<button class="helper insp ${p.useInspiration ? 'on' : ''}" data-action="inspire" ${busy ? 'disabled' : ''}>✨ Spend Inspiration (${game.inspiration} left)</button>` : ''}
+      ${boosts ? `<div class="helper-row"><span>Use a special ability? <small>(once per adventure, gives advantage)</small></span><div>${boosts}</div></div>` : ''}
       <div class="roll-line">
         <div class="dice-tray" id="tray">${adv ? '<div class="d20 idle"><span>20</span></div><div class="d20 idle"><span>20</span></div>' : '<div class="d20 idle"><span>20</span></div>'}</div>
         <button class="big primary roll-btn" data-action="roll" ${busy ? 'disabled' : ''}>🎲 Roll${adv ? ' with advantage' : ''}!</button>
@@ -513,10 +659,25 @@ function battleDc(action) {
 
 function renderEnd() {
   const earned = Object.keys(game.badges);
+  const results = recordAdventure(game);
+  save();
+  if (results.some(r => r.level > r.oldLevel)) award('levelUp');
+  const card = h => {
+    const r = results.find(x => x.heroId === h.id) || { xp: 0, totalXp: 0, level: h.level, oldLevel: h.level, gained: [] };
+    const up = r.level > r.oldLevel;
+    return `<div class="end-hero ${up ? 'levelled' : ''}" style="--hero:${h.color}">
+      ${portraitSVG(h, 64)}
+      <b>${esc(h.name)}</b>
+      <small>${RACES[h.race].name} ${CLASSES[h.cls].name}</small>
+      <span class="xp-gain">+${r.xp} XP</span>
+      ${up ? `<span class="level-up">⬆️ Level ${r.level}!</span>${r.gained.map(g => `<small class="new-ability"><b>${esc(g.name)}:</b> ${esc(g.blurb)}</small>`).join('')}` : `<small>${xpToNext(r.totalXp, r.level)}</small>`}
+    </div>`;
+  };
   return `
     <div class="end">
       <h3>🏆 Quest complete!</h3>
-      <div class="end-heroes">${game.party.map(h => `<div class="end-hero" style="--hero:${h.color}"><span class="sigil-badge">${h.sigil}</span><b>${esc(h.name)}</b><small>${RACES[h.race].name} ${CLASSES[h.cls].name}</small><small>${h.spotlights} ${h.spotlights === 1 ? 'moment' : 'moments'} in the spotlight</small></div>`).join('')}</div>
+      <p>Every hero earns experience (XP) and the adventure goes into their record. They're saved in the 🏰 Hall of Heroes, ready for the next quest.</p>
+      <div class="end-heroes">${game.party.map(card).join('')}</div>
       <p>Your party earned <b>${earned.length} of ${Object.keys(BADGES).length}</b> badges. Each one is a real D&amp;D rule you now know.</p>
       <div class="button-row">
         <button class="big" data-action="badges">🏅 See what you learned</button>
@@ -524,6 +685,165 @@ function renderEnd() {
         <button class="big primary" data-action="new-party">✨ New party</button>
       </div>
     </div>`;
+}
+
+function xpToNext(xp, level) {
+  if (level >= MAX_LEVEL) return 'Maximum level reached!';
+  return `${XP_FOR_LEVEL[level + 1] - xp} XP to level ${level + 1}`;
+}
+
+// ---- Hall of Heroes, character sheets and the hero editor ---------------------------
+
+function renderHall() {
+  const roster = loadRoster().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  app.innerHTML = `
+    <section class="hall">
+      <div class="setup-intro parchment">
+        <h2>🏰 Hall of Heroes</h2>
+        <p>Every hero your table has made lives here, on this iPad. They keep their level, abilities and story between adventures. Bring them back when you gather a new party. Tap a hero to see their character sheet.</p>
+        <div class="button-row">
+          <button class="big" data-action="home">◀ Back to the menu</button>
+          <button class="big" data-action="export">💾 Export a backup</button>
+          <button class="big" data-action="import">📂 Import a backup</button>
+        </div>
+      </div>
+      ${roster.length ? `<div class="hall-grid">${roster.map(r => `
+        <button class="hall-card parchment" data-action="roster-sheet" data-id="${esc(r.id)}" style="--hero:${r.color}">
+          ${portraitSVG(r, 96)}
+          <span class="hall-name">${esc(r.name)}</span>
+          <span class="hall-sub">Level ${r.level || 1} ${RACES[r.race].name} ${CLASSES[r.cls].name}</span>
+          ${xpBar(r)}
+          <span class="hall-sub">${r.adventures || 0} ${r.adventures === 1 ? 'adventure' : 'adventures'} · played by ${esc(r.player)}</span>
+        </button>`).join('')}</div>`
+      : '<div class="parchment empty-hall"><p>No heroes yet! Gather a party and finish an adventure, and your heroes will be waiting here.</p></div>'}
+    </section>`;
+}
+
+function xpBar(r) {
+  const level = r.level || 1, xp = r.xp || 0;
+  if (level >= MAX_LEVEL) return '<span class="xp-bar"><span style="width:100%"></span><i>Max level</i></span>';
+  const from = XP_FOR_LEVEL[level] || 0, to = XP_FOR_LEVEL[level + 1];
+  const pct = Math.round(((xp - from) / (to - from)) * 100);
+  return `<span class="xp-bar"><span style="width:${pct}%"></span><i>${xp} / ${to} XP</i></span>`;
+}
+
+// The character sheet. `inGame` is the live hero during an adventure (for HP).
+function openHeroSheet(record, inGame) {
+  const r = record || inGame;
+  const level = r.level || 1;
+  const hero = inGame || buildHero(r, 0);
+  const perks = perksFor(r.cls, level);
+  const next = level < MAX_LEVEL ? (LEVEL_PERKS[r.cls] || {})[level + 1] : null;
+  const trained = CLASSES[r.cls].skills.map(k => `${SKILLS[k].name} ${signed(skillBonus(hero, k).total)}`).join(', ');
+  const deeds = (record?.deeds || []);
+  openModal(`
+    <div class="sheet" style="--hero:${r.color}">
+      <div class="sheet-head">
+        ${portraitSVG(r, 120)}
+        <div>
+          <h3>${r.sigil} ${esc(r.name)}</h3>
+          <div class="hall-sub">Level ${level} ${RACES[r.race].name} ${CLASSES[r.cls].name} · ${esc(r.pronouns || 'they/them')} · played by ${esc(r.player)}</div>
+          ${record ? xpBar(record) : ''}
+          <div class="hall-sub">HP ${inGame ? `${hero.hp} / ` : ''}${hero.maxHp} · Proficiency +${profBonus(level)}</div>
+        </div>
+      </div>
+      <div class="stat-row">${Object.keys(ABILITIES).map(k => `<span class="stat"><b>${ABILITIES[k].short}</b>${hero.scores[k]}<i>${signed(mod(hero.scores[k]))}</i></span>`).join('')}</div>
+      <p><b>Trained skills:</b> ${trained}</p>
+      <div class="pick-label">Abilities</div>
+      <ul class="ability-list">
+        ${perks.list.map(p => `<li><b>${esc(p.name)}</b> <small>(level ${p.level})</small>: ${esc(p.blurb)}</li>`).join('') || '<li>Abilities unlock as this hero levels up.</li>'}
+        ${next ? `<li class="locked">🔒 <b>${esc(perkName(next))}</b> <small>(at level ${level + 1})</small>: ${esc(perkBlurb(next))}</li>` : ''}
+      </ul>
+      ${r.look ? `<div class="pick-label">Looks</div><p>${esc(r.look)}</p>` : ''}
+      <div class="pick-label">Backstory</div>
+      ${r.backstory ? paragraphs(r.backstory) : '<p class="small">No backstory yet. Add one and the AI Dungeon Master will weave it into the story.</p>'}
+      ${record ? `<div class="pick-label">Deeds</div>
+      ${deeds.length ? `<ul class="deeds">${deeds.map(d => `<li><b>${esc(d.adventure)}</b> <small>${new Date(d.when).toLocaleDateString()} · ${esc(d.outcome)} · +${d.xp} XP</small>${d.highlights?.length ? `<ul>${d.highlights.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul>` : '<p class="small">No adventures finished yet.</p>'}
+      <div class="button-row">
+        <button class="big primary" data-action="edit-hero" data-id="${esc(record.id)}">✏️ Edit looks &amp; backstory</button>
+        ${game.screen === 'game' ? '' : `<button class="big danger" data-action="delete-hero" data-id="${esc(record.id)}">🗑️ Retire hero</button>`}
+      </div>` : ''}
+    </div>`);
+}
+
+function openHeroEditor(id) {
+  const r = rosterHero(id);
+  if (!r) return;
+  editDraft = JSON.parse(JSON.stringify(r));
+  drawHeroEditor();
+}
+
+function drawHeroEditor() {
+  const d = editDraft;
+  openModal(`
+    <h3>✏️ Edit ${esc(d.name)}</h3>
+    <div class="editor-head"><span id="edit-portrait">${portraitSVG(d, 110)}</span>
+      <div class="editor-fields">
+        <label>Hero's name<input type="text" data-edit="name" value="${esc(d.name)}" autocomplete="off"></label>
+        <div class="field-row">
+          <label>Player<input type="text" data-edit="player" value="${esc(d.player)}" autocomplete="off"></label>
+          <label>Pronouns<input type="text" data-edit="pronouns" value="${esc(d.pronouns)}" autocomplete="off"></label>
+        </div>
+      </div>
+    </div>
+    <div class="sigils">${SIGILS.map(s => `<button class="sigil ${s === d.sigil ? 'on' : ''}" data-action="edit-pick" data-field="sigil" data-value="${s}">${s}</button>`).join('')}</div>
+    <div class="swatches">${COLORS.map(c => `<button class="swatch ${c === d.color ? 'on' : ''}" style="background:${c}" data-action="edit-pick" data-field="color" data-value="${c}" aria-label="Colour ${c}"></button>`).join('')}</div>
+    <label>What do they look like?<textarea data-edit="look" rows="2">${esc(d.look)}</textarea></label>
+    ${portraitPicker('edit', d)}
+    ${backstoryField('data-edit="backstory"', d.backstory, d.name)}
+    <div class="button-row">
+      <button class="chip" data-action="random-backstory" data-seat="edit">🎲 Backstory idea</button>
+    </div>
+    <div class="button-row">
+      <button class="big primary" data-action="save-hero">💾 Save</button>
+      <button class="big" data-action="roster-sheet" data-id="${esc(d.id)}">Cancel</button>
+    </div>`);
+}
+
+function saveHeroEdits() {
+  if (!editDraft) return;
+  if (!editDraft.name.trim()) { toast('Every hero needs a name.'); return; }
+  editDraft.name = editDraft.name.trim();
+  const saved = storeRosterHero(editDraft);
+  // If this hero is in the current adventure, show the changes there too.
+  (game.party || []).forEach(h => {
+    if (h.rosterId !== saved.id) return;
+    ['name', 'player', 'pronouns', 'sigil', 'color', 'look', 'backstory', 'portrait'].forEach(f => { h[f] = saved[f]; });
+  });
+  save();
+  editDraft = null;
+  toast('Hero saved.');
+  openHeroSheet(saved);
+  render();
+}
+
+// ---- Backups --------------------------------------------------------------------------
+
+function exportBackup() {
+  try {
+    downloadBackup(game);
+    toast('💾 Backup saved. On iPad, look in the Files app → Downloads.');
+  } catch (e) {
+    toast('Sorry, the backup couldn\'t be saved: ' + e.message);
+  }
+}
+
+function pickBackupFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file) return;
+    try {
+      const result = importBackup(JSON.parse(await file.text()));
+      toast(`📂 Imported ${result.heroes} ${result.heroes === 1 ? 'hero' : 'heroes'} and ${result.games} paused ${result.games === 1 ? 'adventure' : 'adventures'}.`);
+    } catch (e) {
+      toast('📂 ' + (e instanceof SyntaxError ? 'That file couldn\'t be read.' : e.message));
+    }
+    render();
+  });
+  input.click();
 }
 
 // ---- Story flow ---------------------------------------------------------------
@@ -618,16 +938,27 @@ async function performCheck() {
   busy = true;
   const p = game.pending;
   const hero = heroById(p.heroId);
-  const advantage = Boolean(p.helperId || p.useInspiration || p.battleAdv);
+  const advantage = Boolean(p.helperId || p.useInspiration || p.battleAdv || p.boost);
   document.querySelectorAll('#actions button').forEach(b => { b.disabled = true; });
   const result = rollD20(hero, advantage);
   await animateDice(document.getElementById('tray'), result);
 
   const b = skillBonus(hero, p.skill);
   const total = result.kept + b.total;
-  const success = result.kept === 20 ? true : result.kept === 1 ? false : total >= p.dc;
+  const crit = result.kept >= critMin(hero);
+  const success = crit ? true : result.kept === 1 ? false : total >= p.dc;
 
   if (p.useInspiration) { game.inspiration--; award('inspired'); }
+  if (p.boost) {
+    const [ownerId, powerId] = p.boost.split(':');
+    const owner = heroById(ownerId);
+    const pw = owner?.powers.find(x => x.id === powerId);
+    if (pw) { pw.used = true; addLog({ kind: 'system', text: `${POWERS[powerId].icon} ${owner.name} uses ${POWERS[powerId].name}: advantage!` }); }
+  }
+  if (success) hero.successes = (hero.successes || 0) + 1;
+  if (result.kept === 20) noteMoment(hero, `Rolled a natural 20 on ${SKILLS[p.skill].name}`);
+  else if (crit) noteMoment(hero, `Landed a critical ${result.kept} on ${SKILLS[p.skill].name}`);
+  if (success && p.source === 'solo') noteMoment(hero, `${scene().title}: ${p.label}`);
   if (p.helperId || p.battleAdv) award('teamwork');
   award('firstRoll');
   if (result.kept === 20) award('nat20');
@@ -637,9 +968,9 @@ async function performCheck() {
   if (game.party.every(h => h.spotlights > 0)) award('everyone');
 
   const diceText = result.rolls.length > 1 ? `${result.rolls.join(' & ')} → ${result.kept}` : `${result.kept}`;
-  const crit = result.kept === 20 ? ' NATURAL 20!' : result.kept === 1 ? ' Natural 1...' : '';
+  const critText = result.kept === 20 ? ' NATURAL 20!' : crit ? ` A ${result.kept}: critical!` : result.kept === 1 ? ' Natural 1...' : '';
   const luck = result.lucky ? ' (Halfling luck rerolled a 1!)' : '';
-  addLog({ kind: 'roll', success, text: `🎲 ${hero.name} · ${SKILLS[p.skill].name}: ${diceText} ${signed(b.total)} = ${total} vs DC ${p.dc}.${crit}${luck} ${success ? 'Success!' : 'Failure.'}` });
+  addLog({ kind: 'roll', success, text: `🎲 ${hero.name} · ${SKILLS[p.skill].name}: ${diceText} ${signed(b.total)} = ${total} vs DC ${p.dc}.${critText}${luck} ${success ? 'Success!' : 'Failure.'}` });
   await sleep(700);
   busy = false;
 
@@ -648,13 +979,18 @@ async function performCheck() {
 }
 
 function damage(hero, amount) {
+  const shield = Math.min(amount, hero.perks?.shield || 0);
+  const shieldText = shield ? ` (${shield} blocked by ${hero.cls === 'rogue' ? 'Uncanny Dodge' : 'Shield'})` : '';
+  amount -= shield;
+  if (amount <= 0) { addLog({ kind: 'system', text: `🛡️ ${hero.name} shrugs off the hit${shieldText}.` }); return; }
   hero.hp = Math.max(0, hero.hp - amount);
   award('ouch');
   if (hero.hp === 0) {
     hero.down = true;
-    addLog({ kind: 'system', text: `💥 ${hero.name} takes ${amount} damage and is knocked out! A healer can bring ${hero.name} back.` });
+    noteMoment(hero, 'Was knocked out, and got back up');
+    addLog({ kind: 'system', text: `💥 ${hero.name} takes ${amount} damage${shieldText} and is knocked out! A healer can bring ${hero.name} back.` });
   } else {
-    addLog({ kind: 'system', text: `💥 ${hero.name} takes ${amount} damage (${hero.hp}/${hero.maxHp} HP left).` });
+    addLog({ kind: 'system', text: `💥 ${hero.name} takes ${amount} damage${shieldText} (${hero.hp}/${hero.maxHp} HP left).` });
   }
 }
 
@@ -691,8 +1027,10 @@ async function groupRoll(heroId) {
   const result = rollD20(hero, false);
   await animateDice(document.getElementById('tray'), result);
   const total = result.kept + skillBonus(hero, s.skill).total;
-  const success = result.kept === 20 ? true : result.kept === 1 ? false : total >= s.dc;
+  const success = result.kept >= critMin(hero) ? true : result.kept === 1 ? false : total >= s.dc;
   game.group[heroId] = { roll: result.kept, total, success };
+  if (success) hero.successes = (hero.successes || 0) + 1;
+  if (result.kept === 20) noteMoment(hero, `Rolled a natural 20 on ${SKILLS[s.skill].name}`);
   award('firstRoll');
   if (result.kept === 20) award('nat20');
   if (result.kept === 1) award('nat1');
@@ -822,31 +1160,35 @@ async function finishBattle(victory, hero) {
 
 // ---- Hero powers -----------------------------------------------------------------
 
-function usePower(heroId) {
+function usePower(heroId, powerId) {
   if (busy) return;
   const hero = heroById(heroId);
-  const power = CLASSES[hero.cls].power;
-  if (!power || hero.powerUsed) return;
-  if (power.id === 'secondWind') {
+  const slot = hero?.powers.find(p => p.id === powerId);
+  const power = POWERS[powerId];
+  if (!slot || slot.used || power.kind !== 'heal') return;
+  const amount = () => Math.max(1, rollDie(power.die) + power.plus(hero));
+  if (power.target === 'self') {
     if (hero.hp >= hero.maxHp) { toast(`${hero.name} is already at full health. Save it for later!`); return; }
-    heal(hero, hero, rollDie(10) + 1, power.name);
+    heal(hero, hero, amount(), powerId);
     return;
   }
-  // Cure Wounds: pick who to heal.
   openModal(`
-    <h3>✨ Cure Wounds</h3>
-    <p>${esc(hero.name)} lays a glowing hand on a friend. Who needs it most? Heals 1d8 ${signed(mod(hero.scores.wis))} HP, once per adventure.</p>
-    <div class="target-list">${game.party.map(t => `<button class="choice" data-action="heal-target" data-hero="${hero.id}" data-target="${t.id}" style="--hero:${t.color}"><span class="choice-label">${t.sigil} ${esc(t.name)}</span><span class="choice-meta">${t.down ? 'Knocked out' : `HP ${t.hp}/${t.maxHp}`}</span></button>`).join('')}</div>`);
+    <h3>${power.icon} ${power.name}</h3>
+    <p>${esc(hero.name)} lays a glowing hand on a friend. Who needs it most? Heals 1d${power.die} ${signed(power.plus(hero))} HP, once per adventure.</p>
+    <div class="target-list">${game.party.map(t => `<button class="choice" data-action="heal-target" data-hero="${hero.id}" data-power="${powerId}" data-target="${t.id}" style="--hero:${t.color}"><span class="choice-label">${t.sigil} ${esc(t.name)}</span><span class="choice-meta">${t.down ? 'Knocked out' : `HP ${t.hp}/${t.maxHp}`}</span></button>`).join('')}</div>`);
 }
 
-function heal(healer, target, amount, powerName) {
+function heal(healer, target, amount, powerId) {
+  const power = POWERS[powerId];
   const before = target.hp;
   target.hp = Math.min(target.maxHp, target.hp + amount);
   const wasDown = target.down;
   target.down = false;
-  healer.powerUsed = true;
+  const slot = healer.powers.find(p => p.id === powerId);
+  if (slot) slot.used = true;
   award('healer');
-  addLog({ kind: 'system', text: `💚 ${healer.name} uses ${powerName}: ${target.name} heals ${target.hp - before} HP${wasDown ? ' and is back up' : ''} (${target.hp}/${target.maxHp}).` });
+  if (target !== healer) noteMoment(healer, `Healed ${target.name} with ${power.name}`);
+  addLog({ kind: 'system', text: `💚 ${healer.name} uses ${power.name}: ${target.name} heals ${target.hp - before} HP${wasDown ? ' and is back up' : ''} (${target.hp}/${target.maxHp}).` });
   closeModal();
   save();
   render();
@@ -936,8 +1278,17 @@ function openSettings() {
       </div>
       <p class="small" id="ai-status"></p>
     </div>
+    <div class="setting">
+      <div class="pick-label">Backup</div>
+      <p class="small">Your heroes and paused adventures live only on this iPad. Export a backup file now and then (it goes to Files → Downloads). Import it to restore, or to move your heroes to another device. The API key is never put in the file.</p>
+      <div class="button-row">
+        <button class="big" data-action="export">💾 Export a backup</button>
+        <button class="big" data-action="import">📂 Import a backup</button>
+      </div>
+    </div>
     <div class="setting danger-zone">
-      <button class="big danger" data-action="wipe">🗑️ Erase saved game and badges</button>
+      <button class="big danger" data-action="wipe">🗑️ Erase the current adventure and its badges</button>
+      <p class="small">Saved heroes and paused adventures are kept. Retire heroes from the 🏰 Hall of Heroes.</p>
     </div>`);
 }
 
@@ -1015,7 +1366,7 @@ document.addEventListener('click', event => {
       render();
       break;
     case 'new-party': closeModal(); startSetup(); break;
-    case 'home': closeModal(); showTitle = true; render(); break;
+    case 'home': closeModal(); showTitle = true; view = null; render(); break;
     case 'party-size': game.setup.size = Number(value); save(); render(); break;
     case 'seat-pick': game.setup.seats[el.dataset.seat][el.dataset.field] = value; save(); render(); break;
     case 'random-name': {
@@ -1039,15 +1390,17 @@ document.addEventListener('click', event => {
     case 'initiative-roll': initiativeRoll(el.dataset.hero); break;
     case 'battle-act': battleAction(Number(el.dataset.index)); break;
     case 'next-scene': nextScene(); break;
-    case 'power': usePower(el.dataset.hero); break;
+    case 'power': usePower(el.dataset.hero, el.dataset.power); break;
     case 'heal-target': {
       const healer = heroById(el.dataset.hero);
-      heal(healer, heroById(el.dataset.target), Math.max(1, rollDie(8) + mod(healer.scores.wis)), 'Cure Wounds');
+      const power = POWERS[el.dataset.power];
+      heal(healer, heroById(el.dataset.target), Math.max(1, rollDie(power.die) + power.plus(healer)), el.dataset.power);
       break;
     }
+    case 'boost': game.pending.boost = game.pending.boost === el.dataset.key ? null : el.dataset.key; save(); render(); break;
     case 'replay':
-      game.party.forEach(h => { h.hp = h.maxHp; h.down = false; h.powerUsed = false; h.spotlights = 0; });
-      Object.assign(game, { sceneIndex: 0, log: [], flags: {}, inspiration: 0, spotlight: -1, battle: null, group: null, pending: null });
+      rebuildPartyFromRoster();
+      Object.assign(game, { sceneIndex: 0, log: [], flags: {}, inspiration: 0, spotlight: -1, battle: null, group: null, pending: null, rosterResults: null });
       enterScene();
       break;
     case 'pip-quick': askPip(el.dataset.q); break;
@@ -1085,11 +1438,64 @@ document.addEventListener('click', event => {
       break;
     }
     case 'wipe':
-      if (confirm('Erase the saved adventure and all badges on this iPad?')) {
+      if (confirm('Erase the current adventure and its badges? Saved heroes and paused adventures stay.')) {
         clearGame(); game = newState(); showTitle = true; closeModal(); render();
       }
       break;
-    case 'close-modal': closeModal(); break;
+    case 'close-modal': closeModal(); editDraft = null; break;
+    case 'pause': confirmPause(); break;
+    case 'pause-now': pauseNow(); break;
+    case 'resume': resumePaused(el.dataset.id); break;
+    case 'drop-paused':
+      if (confirm('Delete this paused adventure? Its heroes stay in the Hall of Heroes.')) { removeFromShelf(el.dataset.id); render(); }
+      break;
+    case 'hall': closeModal(); view = 'heroes'; showTitle = true; render(); window.scrollTo(0, 0); break;
+    case 'roster-sheet': editDraft = null; openHeroSheet(rosterHero(el.dataset.id)); break;
+    case 'hero-sheet': {
+      const hero = heroById(el.dataset.hero);
+      if (hero) openHeroSheet(hero.rosterId ? rosterHero(hero.rosterId) : null, hero);
+      break;
+    }
+    case 'edit-hero': openHeroEditor(el.dataset.id); break;
+    case 'edit-pick': editDraft[el.dataset.field] = value; drawHeroEditor(); break;
+    case 'save-hero': saveHeroEdits(); break;
+    case 'delete-hero': {
+      const r = rosterHero(el.dataset.id);
+      if (r && confirm(`Retire ${r.name}? Their character sheet and deeds will be deleted from this iPad.`)) {
+        deleteRosterHero(r.id); closeModal(); render();
+      }
+      break;
+    }
+    case 'seat-load': {
+      const r = rosterHero(el.dataset.id);
+      if (r) game.setup.seats[el.dataset.seat] = seatFromRoster(r);
+      save(); render();
+      break;
+    }
+    case 'seat-clear': game.setup.seats[el.dataset.seat] = defaultSeat(Number(el.dataset.seat)); save(); render(); break;
+    case 'portrait-pick': {
+      const draft = el.dataset.target === 'edit' ? editDraft : game.setup.seats[el.dataset.target.split(':')[1]];
+      if (el.dataset.field === 'reset') draft.portrait = {};
+      else draft.portrait = { ...(draft.portrait || {}), [el.dataset.field]: value };
+      if (el.dataset.target === 'edit') drawHeroEditor(); else { save(); render(); }
+      break;
+    }
+    case 'random-backstory': {
+      if (el.dataset.seat === 'edit') {
+        editDraft.backstory = randomBackstory(editDraft.name);
+        const box = document.querySelector('[data-edit="backstory"]');
+        if (box) box.value = editDraft.backstory;
+      } else {
+        const seat = game.setup.seats[el.dataset.seat];
+        seat.backstory = randomBackstory(seat.name);
+        const box = document.querySelector(`textarea[data-seat="${el.dataset.seat}"][data-field="backstory"]`);
+        if (box) box.value = seat.backstory;
+        save();
+      }
+      break;
+    }
+    case 'export': exportBackup(); break;
+    case 'import': pickBackupFile(); break;
   }
 });
 
@@ -1102,7 +1508,19 @@ document.addEventListener('input', event => {
     const label = document.getElementById('seat-name-' + el.dataset.seat);
     if (label) label.textContent = el.value || 'Unnamed hero';
   }
+  if (el.dataset.field === 'look') {
+    // The portrait reacts to the description as it's typed.
+    const pic = document.getElementById('seat-portrait-' + el.dataset.seat);
+    if (pic) pic.innerHTML = portraitSVG(game.setup.seats[el.dataset.seat], 84);
+  }
   save();
+});
+
+document.addEventListener('input', event => {
+  const el = event.target;
+  if (!el.dataset.edit || !editDraft) return;
+  editDraft[el.dataset.edit] = el.value;
+  if (el.dataset.edit === 'look') document.getElementById('edit-portrait').innerHTML = portraitSVG(editDraft, 110);
 });
 
 document.addEventListener('input', event => {
